@@ -5816,6 +5816,9 @@ export function createZCodeAgentService(
     async managedWorktreeAvailable(): Promise<boolean> {
       return false;
     },
+    async listManagedWorktreeStartRefs() {
+      return null;
+    },
 
     async generateWorkspaceText(params: ZCodeAgentGenerateWorkspaceTextParams) {
       const client = await getClient(params);

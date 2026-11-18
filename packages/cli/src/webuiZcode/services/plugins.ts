@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+
 import { Emitter } from "@zcode/rpc";
 import { IPluginManagementService, IPluginsService } from "@zcode/services";
 import type {
@@ -19,6 +22,8 @@ import {
 import {
   forgetMarketplace,
   loadKnownMarketplaces,
+  marketplaceCheckoutDir,
+  rememberMarketplace,
 } from "../../plugins/marketplaceRegistry.js";
 import {
   installPlugin as installMarketplacePlugin,
@@ -26,6 +31,7 @@ import {
   uninstallPlugin as uninstallPluginRecord,
 } from "../../plugins/pluginInstall.js";
 
+import { readExternalCatalogs } from "./externalPluginCatalogs.js";
 import {
   catalogEntry,
   catalogIndex,
@@ -100,6 +106,66 @@ export function createZcodePluginServices(): ZcodePluginServices {
   const emitProgress = (operationId: string | undefined): void => {
     if (!operationId) return;
     emitterFor(operationId).fire({ operationId, state: "refreshing" });
+  };
+
+  /**
+   * The store lists plugins from Claude Code's local marketplace caches too,
+   * and those marketplaces may never have been registered in TNT's own
+   * registry — clicking install on one then failed with "not registered" /
+   * "not listed". Materialize the cached manifest as a TNT marketplace record
+   * so the ordinary install engine (clone / fetch per entry source) runs
+   * against it. Returns true when the marketplace is usable after the call.
+   */
+  const ensureMarketplaceRegistered = (marketplace: string): boolean => {
+    if (loadKnownMarketplaces()[marketplace]) return true;
+    const external = readExternalCatalogs().find(
+      (catalog) => catalog.name === marketplace,
+    );
+    if (
+      !external ||
+      !external.manifest ||
+      external.manifest.plugins.length === 0
+    )
+      return false;
+    const checkout = marketplaceCheckoutDir(marketplace);
+    const manifestDir = path.join(checkout, ".claude-plugin");
+    fs.mkdirSync(manifestDir, { recursive: true });
+    const manifestFile = path.join(manifestDir, "marketplace.json");
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(external.manifest, null, 2)}\n`,
+    );
+    rememberMarketplace(marketplace, {
+      source: { source: "directory", path: checkout },
+      installLocation: manifestFile,
+      lastUpdated: new Date().toISOString(),
+    });
+    return true;
+  };
+
+  /**
+   * Resolve the marketplace+plugin pair the store listed into something the
+   * install engine accepts. Throws the original error when the entry exists
+   * nowhere it can be served from.
+   */
+  const resolveListedPluginSource = (
+    marketplace: string,
+    pluginName: string,
+  ): void => {
+    try {
+      assertInstallableSource(
+        catalogEntry(marketplace, pluginName).source,
+        channel,
+      );
+      return;
+    } catch (error) {
+      if (isUnavailableError(error)) throw error;
+      if (!ensureMarketplaceRegistered(marketplace)) throw error;
+      assertInstallableSource(
+        catalogEntry(marketplace, pluginName).source,
+        channel,
+      );
+    }
   };
 
   const addMarketplaceSource = async (
@@ -180,10 +246,7 @@ export function createZcodePluginServices(): ZcodePluginServices {
     emitProgress(operationId);
     const pluginId = `${pluginName}@${marketplace}`;
     try {
-      assertInstallableSource(
-        catalogEntry(marketplace, pluginName).source,
-        channel,
-      );
+      resolveListedPluginSource(marketplace, pluginName);
       if (dryRun) {
         return { installedPlugins: [], dependencyClosure: [], diagnostics: [] };
       }
@@ -274,7 +337,7 @@ export function createZcodePluginServices(): ZcodePluginServices {
   ): Promise<ZCodePluginsRestoreBuiltinResult> => {
     const { name, marketplace } = splitPluginId(pluginId);
     try {
-      assertInstallableSource(catalogEntry(marketplace, name).source, channel);
+      resolveListedPluginSource(marketplace, name);
       await installMarketplacePlugin(marketplace, name, createDefaultDeps());
       reloadSnapshot(workspacePath);
       return { pluginId, diagnostics: [] };

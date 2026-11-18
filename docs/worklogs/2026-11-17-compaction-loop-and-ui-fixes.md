@@ -169,6 +169,30 @@ TNT 采用 Cursor 的 90% 比例触发（用户指定），去掉固定绝对上
 - 文件：`src/session/paths.ts`（`getSessionsTrashDir`）、`src/session/store.ts`、
   `src/session/store.test.ts`。
 
+## 10. WebUI 插件市场安装直接报错（已修复）
+
+- 复现：`getPluginsOverview` 列出 4005 个可安装插件，但其中大多数来自 Claude Code
+  本地缓存的外部目录（`claude-plugin-directory` 3678 项、`claude-superpowers-marketplace`
+  10 项），这些市场从未注册进 TNT 自己的 marketplace registry——点击安装即抛
+  `Marketplace … is not registered` / `Plugin … is not listed by …`。
+- 修复：
+  - `webuiZcode/services/plugins.ts`：`installPluginInto`/`restoreBuiltin` 的目录解析
+    失败时，若该市场存在于外部目录缓存，则把缓存的 manifest **物化**为 TNT 市场记录
+    （写入 `~/.tnt/plugins/marketplaces/<name>/.claude-plugin/marketplace.json` 并
+    `rememberMarketplace`），之后走普通安装引擎。
+  - `plugins/pluginInstall.ts`：github 整仓来源（社区目录条目都是仓级 source）克隆后，
+    若克隆体不是插件而是市场仓库，则按其 `marketplace.json` 归位到该插件名对应的
+    子目录（与 git-subdir 流程同一语义），否则 loader 在根上找不到插件。
+- 验证：此前报错的两个条目 dry-run 通过；`superpowers@claude-superpowers-marketplace`
+  真实安装成功且可被 `discoverPlugins` 加载（探针后已卸载还原）；cli tsc 通过、
+  webui+plugins 268 项测试通过。
+
+## 11. 会话列表「三个点」菜单（按用户要求回退）
+
+- 曾为触屏/网页端加入行内 ⋯ 下拉菜单（复用右键菜单内容），用户确认网页端右键菜单
+  本身可用且与桌面一致，按指示整体回退（task-row.tsx、task-context-menu-content.tsx、
+  i18n key 均已还原，无残留）。
+
 ## 验证
 
 - `core`：`contextPolicy.vitest.ts` 7 项通过；`tsc -p ./ --noEmit` 通过。

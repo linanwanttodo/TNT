@@ -243,6 +243,11 @@ export async function installPlugin(
       fs.rmSync(target, { recursive: true, force: true });
       fs.cpSync(inner, target, { recursive: true });
       fs.rmSync(cloneTarget, { recursive: true, force: true });
+    } else if (reduceToDeclaredPluginSubdir(cloneTarget, target, pluginName)) {
+      // A directory-listing entry names a whole marketplace repository (the
+      // community directory lists repo roots). The clone above is that repo;
+      // reduce it to the subdirectory the repo's own marketplace.json names
+      // for this plugin, or the loader finds no plugin manifest at the root.
     }
     const head = await deps.run("git", ["rev-parse", "HEAD"], {
       cwd: target,
@@ -276,6 +281,57 @@ export interface InstallPlan {
   id: string;
   /** Every plugin that ended up installed, dependencies first. */
   installed: InstalledPlugin[];
+}
+
+/**
+ * Reduce a cloned marketplace repository to the plugin subdirectory its own
+ * marketplace.json names. Community directory listings carry repo-level
+ * sources, so the clone starts as the whole repo; a plugin the loader can use
+ * is the named subdirectory inside it.
+ */
+function reduceToDeclaredPluginSubdir(
+  clone: string,
+  target: string,
+  pluginName: string,
+): boolean {
+  const pluginManifest = path.join(clone, ".claude-plugin", "plugin.json");
+  if (fs.existsSync(pluginManifest)) return false;
+  const marketplaceFile = path.join(
+    clone,
+    ".claude-plugin",
+    "marketplace.json",
+  );
+  if (!fs.existsSync(marketplaceFile)) return false;
+  let manifest;
+  try {
+    manifest = parseMarketplaceManifest(
+      JSON.parse(fs.readFileSync(marketplaceFile, "utf-8")),
+    );
+  } catch {
+    return false;
+  }
+  const entry =
+    manifest.plugins.find((candidate) => candidate.name === pluginName) ??
+    manifest.plugins.find(
+      (candidate) =>
+        typeof candidate.source === "string" &&
+        path.basename(candidate.source) === pluginName,
+    );
+  const relative =
+    entry && typeof entry.source === "string" ? entry.source : undefined;
+  if (!relative) return false;
+  const inner = path.join(clone, relative);
+  if (!fs.existsSync(inner)) return false;
+  const staging = path.join(
+    path.dirname(target),
+    `${path.basename(target)}.tmp-reduce`,
+  );
+  fs.rmSync(staging, { recursive: true, force: true });
+  fs.cpSync(inner, staging, { recursive: true });
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.cpSync(staging, target, { recursive: true });
+  fs.rmSync(staging, { recursive: true, force: true });
+  return true;
 }
 
 function parseDependency(

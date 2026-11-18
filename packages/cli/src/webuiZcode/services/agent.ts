@@ -905,6 +905,10 @@ export function createZcodeAgentService(
           })),
       };
     },
+    listManagedWorktreeStartRefs: async (params) => {
+      const { listStartRefs } = await import("./managedWorktree.js");
+      return listStartRefs({ workspacePath: params.workspacePath });
+    },
   };
   return {
     service: stubServiceWith<IZCodeAgentService>(

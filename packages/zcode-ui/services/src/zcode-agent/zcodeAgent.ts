@@ -869,6 +869,8 @@ export interface IZCodeAgentService {
   removeManagedWorktree(params: ZCodeAgentManagedWorktreeRemoveParams): Promise<void>;
   /** 当前 workspace 是否可以勾选 worktree（主目录是 Git 仓库）。 */
   managedWorktreeAvailable(params: ZCodeAgentWorkspaceTarget): Promise<boolean>;
+  /** worktree 分支选择器的起点候选（HEAD / 本地分支 / 远程分支）。 */
+  listManagedWorktreeStartRefs(params: ZCodeAgentWorkspaceTarget): Promise<import("@zcode/shared").ManagedWorktreeStartRefs | null>;
   generateWorkspaceText(
     params: ZCodeAgentGenerateWorkspaceTextParams,
   ): Promise<ZCodeWorkspaceGenerateTextResult>;

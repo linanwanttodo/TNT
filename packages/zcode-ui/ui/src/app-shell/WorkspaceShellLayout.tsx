@@ -45,7 +45,9 @@ import {
 } from "@/v4/usePaneSessionPersistence.js";
 import { requestV4ComposerDraftWorkspaceTransfer } from "@/v4/composer/composerDraftWorkspaceTransfer.js";
 import { ProjectComposerMenu, ProjectDirectoryProvider } from "@/project-sidebar/index.js";
-import { TntWorktreeToggle } from "@/tnt-worktree/TntWorktreeToggle.js";
+import { TntWorktreeToggle, TntWorktreeBranchPicker } from "@/tnt-worktree/TntWorktreeToggle.js";
+import { useTntDraftWorktreeStore } from "@/tnt-worktree/draftWorktreeStore.js";
+import { useServices } from "@/hooks/useServices.js";
 import { DesktopTopOverlay } from "@/DesktopTopOverlay.js";
 import { DesktopWindowFrame } from "@/DesktopWindowFrame.js";
 import { WorkspacePluginPreview } from "@/workspace-plugin-preview/index.js";
@@ -1495,8 +1497,22 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
   );
   // 草稿头部保留项目菜单与 Git 分支；项目目录由共享 Provider 提供。
   // Shell 只连接既有导航回调，pane 不持有另一份项目列表或 cwd 归属推断。
-  // Worktree 的开关自持状态（draftWorktreeStore），分支胶囊保持原生切分支语义：
-  // worktree 从当前检出创建，选择分支就是切换分支（与 ZCode 一致）。
+  // Worktree 勾选后分支胶囊切换为 start-ref 选择器（docs/git/worktree.md §3.2，
+  // 与 ZCode 原生行为一致：选择只决定新 worktree 从哪检出，不切换主目录）。
+  const draftWorktreeEnabled = useTntDraftWorktreeStore(
+    (state) => state.read(workspaceAbsPath).enabled,
+  );
+  const draftWorktreeRef = useTntDraftWorktreeStore(
+    (state) => state.read(workspaceAbsPath).ref ?? null,
+  );
+  const setDraftWorktreeRef = useTntDraftWorktreeStore((state) => state.setRef);
+  const listWorktreeStartRefs = useCallback(() => {
+    const { zcodeAgentService } = services;
+    return zcodeAgentService.listManagedWorktreeStartRefs({
+      workspacePath: workspaceAbsPath,
+      workspaceIdentity,
+    });
+  }, [workspaceAbsPath, workspaceIdentity]);
   const draftComposerHeader = useMemo(
     () => (
       <ProjectComposerMenu
@@ -1519,18 +1535,28 @@ const WorkspaceShellLayoutContent = memo(function WorkspaceShellLayoutComponent(
             remoteSessionId={workspaceRemoteSessionId ?? undefined}
           />
         ) : !isOfficeMode && activeWorkspacePurpose === "project" ? (
-          <GitBranchSwitcher
-            workspacePath={workspaceAbsPath}
-            gitSummary={gitState.summary}
-            dirtyFileCount={gitDirtyFileCount}
-            onRefreshGit={handleRefreshGit}
-            className="px-0 pt-0"
-            popoverClassName="w-72"
-            branchListClassName="max-h-48"
-            // Bugfix（旧注释保真）：输入框区域在底部，Radix 碰撞避让会把分支菜单翻到下方。
-            // 这里锁定上方弹出，避免菜单遮挡输入区并保持操作方向稳定。
-            avoidPopoverCollisions={false}
-          />
+          draftWorktreeEnabled ? (
+            <TntWorktreeBranchPicker
+              selectedRef={draftWorktreeRef}
+              currentBranchLabel={gitState.summary.branchName ?? ""}
+              listStartRefs={listWorktreeStartRefs}
+              onSelect={(ref) => setDraftWorktreeRef(workspaceAbsPath, ref ?? undefined)}
+              className="px-0 pt-0"
+            />
+          ) : (
+            <GitBranchSwitcher
+              workspacePath={workspaceAbsPath}
+              gitSummary={gitState.summary}
+              dirtyFileCount={gitDirtyFileCount}
+              onRefreshGit={handleRefreshGit}
+              className="px-0 pt-0"
+              popoverClassName="w-72"
+              branchListClassName="max-h-48"
+              // Bugfix（旧注释保真）：输入框区域在底部，Radix 碰撞避让会把分支菜单翻到下方。
+              // 这里锁定上方弹出，避免菜单遮挡输入区并保持操作方向稳定。
+              avoidPopoverCollisions={false}
+            />
+          )
         ) : null}
         {/* Worktree 勾选贴最右端（docs/git/worktree.md §3.2）；打开后首发创建受管 worktree。 */}
         <TntWorktreeToggle
