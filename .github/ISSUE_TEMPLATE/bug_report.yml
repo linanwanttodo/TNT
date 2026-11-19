@@ -26,7 +26,7 @@ body:
         - **OS**: macOS
         - **TNT version**: output of `tnt --version`
         - **Surface**: interactive terminal / headless / serve / ACP
-        - **Terminal and Node.js**: e.g. GNOME Terminal, xterm-256color, v20.20.1
+        - **Terminal and Node.js**: e.g. GNOME Terminal, xterm-256color, v24.0.0
         - **Model and wire protocol**: e.g. the config entry name and its protocol
         - **Configuration**: the relevant part of `config.yaml` and `settings.json`
       value: |

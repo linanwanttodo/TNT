@@ -55,7 +55,7 @@ A change to a user-visible flag, config key, tool or hook needs the English page
 
 ## Prerequisites
 
-- Node.js `v20.20.1`, matching `.nvmrc`: run `nvm use` in the repository root.
+- Node.js `v24.0.0`, matching `.nvmrc`: run `nvm use` in the repository root.
 - Git, and a package manager that can install `sqlite3` native bindings.
 
 ## Install and Build
