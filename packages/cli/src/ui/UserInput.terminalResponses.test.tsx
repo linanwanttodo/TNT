@@ -16,7 +16,8 @@ const tick = (ms = 80) => new Promise((resolve) => setTimeout(resolve, ms));
  * reply (`ESC]11;rgb:...ESC\`) lost its ESC and was typed into the composer.
  * The probe now runs before the first render; these cases pin the composer's
  * side of the contract: it starts clean, ordinary text (including "]") still
- * works, and the ESC-stripped paste markers enter paste mode.
+ * works, and every terminal report - OSC strings, the XTVERSION DCS string and
+ * the device attributes reply - is dropped instead of becoming prompt text.
  */
 describe("UserInput terminal responses", () => {
   let onSubmit: ReturnType<typeof vi.fn>;
@@ -85,6 +86,59 @@ describe("UserInput terminal responses", () => {
       tree.stdin.write("abc");
       await tick();
       expect(tree.lastFrame() ?? "").toContain("abc");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  /**
+   * A terminal answers the startup capability probe with a DCS name string and
+   * a multi-field device attributes reply. If either arrives after the probe
+   * stopped reading - a slow terminal, or a busy first run - the answer ends up
+   * in the composer as `|VTE(8400)61;1;21;22;28c`.
+   */
+  it("drops a late primary device attributes reply", async () => {
+    const tree = renderInput();
+    try {
+      await tick();
+
+      tree.stdin.write("\x1b[?61;1;21;22;28c");
+      await tick();
+      expect(tree.lastFrame() ?? "").not.toContain("61;1;21;22");
+
+      tree.stdin.write("abc");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("abc");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("drops a late terminal name reply", async () => {
+    const tree = renderInput();
+    try {
+      await tick();
+
+      tree.stdin.write("\x1bP>|VTE(8400)\x1b\\");
+      await tick();
+      expect(tree.lastFrame() ?? "").not.toContain("VTE");
+
+      tree.stdin.write("abc");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("abc");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("keeps text typed right after an ALT-Shift-P chord", async () => {
+    const tree = renderInput();
+    try {
+      await tick();
+
+      tree.stdin.write("\x1bPhello");
+      await tick();
+      expect(tree.lastFrame() ?? "").toContain("hello");
     } finally {
       tree.unmount();
     }

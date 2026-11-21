@@ -49,10 +49,13 @@ export type TerminalName = string | undefined;
 // Kitty keyboard protocol availability: CSI > u flags reply.
 
 const KITTY_REGEX = new RegExp(`${ESC}\\[\\?\\d+u`);
-// Terminal name reply: CSI < kind ; ver ; patch y (Primary Device Attributes
-// in the DA3 form used by the >q name query).
-
-const TERMINAL_NAME_REGEX = new RegExp(`${ESC}\\[<(\\d+);\\d+;\\d+y`);
+// Terminal name reply for the `CSI > q` (XTVERSION) query: a DCS string of
+// the form `ESC P > | name ESC \` (VTE answers `VTE(8400)`, iTerm2 answers
+// `iTerm2 3.5.0`). The name sits between the `>|` marker and the string
+// terminator, so both the ESC ST and BEL forms are accepted.
+const TERMINAL_NAME_REGEX = new RegExp(
+  `${ESC}P>\\|([^${ESC}\\u0007]*)(?:${ESC}\\\\|\u0007)`,
+);
 // modifyOtherKeys response: CSI > 4 ; level m
 
 const MODIFY_OTHER_KEYS_REGEX = new RegExp(`${ESC}\\[>4;(\\d+)m`);
@@ -61,9 +64,13 @@ const MODIFY_OTHER_KEYS_REGEX = new RegExp(`${ESC}\\[>4;(\\d+)m`);
 // every report in the buffer can be inspected.
 const CURSOR_POSITION_REGEX = new RegExp(`${ESC}\\[(\\d+);(\\d+)R`, "g");
 // Primary Device Attributes reply acts as the sentinel: it is sent last, so
-// receiving it means the terminal processed every query.
+// receiving it means the terminal processed every query. The parameter list
+// must accept any number of `;`-separated fields: real terminals answer with
+// several attributes (VTE sends `CSI ? 61 ; 1 ; 21 ; 22 ; 28 c`), and a
+// two-field pattern never matched them - the probe then sat out its whole
+// timeout and the unanswered bytes were typed into the composer.
 
-const DEVICE_ATTRIBUTES_REGEX = new RegExp(`${ESC}\\[\\?\\d*;?\\d*c`);
+const DEVICE_ATTRIBUTES_REGEX = new RegExp(`${ESC}\\[\\?[\\d;]*c`);
 
 const KITTY_QUERY = `${ESC}[?u`;
 const TERMINAL_NAME_QUERY = `${ESC}[>q`;
@@ -77,6 +84,12 @@ const DEVICE_ATTRIBUTES_QUERY = `${ESC}[c`;
 const HIDDEN_MODE = `${ESC}[8m`;
 const CLEAR_LINE_AND_RETURN = `${ESC}[2K\r`;
 const RESET_ATTRIBUTES = `${ESC}[0m`;
+// One write produces several answers, and the terminal may deliver them in
+// separate chunks: the name reply is a DCS string, the width probe and the
+// DA1 sentinel are CSI replies. After the sentinel arrives the probe keeps
+// reading for one more terminal round trip, so a tail that follows the
+// sentinel is still consumed instead of reaching Ink's input parser.
+const ANSWER_SETTLE_MS = 25;
 
 class TerminalCapabilityManager {
   private static instance: TerminalCapabilityManager | undefined;
@@ -136,7 +149,6 @@ class TerminalCapabilityManager {
       let cursorPositionReceived = false;
       // The cleanup closure references the timer before its declaration;
       // both run after the listener is attached.
-      // eslint-disable-next-line prefer-const
       let timeoutId: NodeJS.Timeout | undefined;
 
       const cleanup = () => {
@@ -219,7 +231,10 @@ class TerminalCapabilityManager {
           const match = buffer.match(DEVICE_ATTRIBUTES_REGEX);
           if (match) {
             deviceAttributesReceived = true;
-            cleanup();
+            // The answer set is complete; give the terminal a moment to
+            // finish writing before stdin becomes Ink's.
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(cleanup, ANSWER_SETTLE_MS);
           }
         }
       };

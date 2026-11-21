@@ -445,6 +445,44 @@ function* emitKeys(
       }
     }
 
+    if (escaped && ch === "P") {
+      // A DCS string is a terminal reply, never a key: the XTVERSION answer
+      // to the startup name query is `ESC P > | VTE(8400) ESC \`. Only that
+      // `>` marker is swallowed, so ALT-Shift-P keeps behaving as the chord
+      // it is instead of eating the keys typed after it.
+      const marker = yield;
+      if (marker === ">") {
+        while (true) {
+          const next = yield;
+          if (next === "" || next === "\u0007") {
+            break;
+          } else if (next === ESC) {
+            const afterEsc = yield;
+            if (afterEsc === "" || afterEsc === "\\") {
+              break;
+            }
+          }
+        }
+        continue; // resume main loop
+      }
+
+      keypressHandler({
+        name: "",
+        shift: false,
+        alt: true,
+        ctrl: false,
+        cmd: false,
+        insertable: false,
+        sequence: `${ESC}P`,
+      });
+      if (marker === "") {
+        continue; // the chord ended the read; wait for the next character
+      }
+      ch = marker;
+      sequence = marker;
+      escaped = false;
+    }
+
     if (escaped && (ch === "O" || ch === "[" || ch === "]")) {
       // ANSI escape sequence
       code = ch;
@@ -521,6 +559,20 @@ function* emitKeys(
           code += ch;
           ch = yield;
           sequence += ch;
+        }
+
+        if (ch === "?" || ch === ">" || ch === "=") {
+          // Private CSI replies: Primary Device Attributes (`CSI ? 61;...c`),
+          // kitty flag reports (`CSI ? 1u`) and Secondary DA (`CSI > ... c`).
+          // No keypress starts with a private marker, so the whole sequence is
+          // a report to drop rather than text to type into the composer.
+          while (true) {
+            const next = yield;
+            if (next === "" || (next >= "@" && next <= "~")) {
+              break;
+            }
+          }
+          continue; // resume main loop
         }
 
         /*
