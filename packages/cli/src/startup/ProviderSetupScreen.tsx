@@ -157,6 +157,17 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
     setError(undefined);
   };
 
+  /**
+   * The ref and the state are written together: arrows used to update only the
+   * highlighted row, so Enter read the ref still holding null and rejected a
+   * choice the reader had visibly made.
+   */
+  const chooseProtocol = (index: number) => {
+    protocolIndexRef.current = index;
+    setProtocolIndex(index);
+    setError(undefined);
+  };
+
   const submit = (current: Step, value = valueFor(current)) => {
     if (current === "baseUrl") {
       const raw = value.trim() || protocol.defaultApiBase;
@@ -228,26 +239,26 @@ export const ProviderSetupScreen: React.FC<ProviderSetupScreenProps> = ({
         if (key.insertable && /^[1-9]$/.test(key.sequence)) {
           const index = Number.parseInt(key.sequence, 10) - 1;
           if (index < PROTOCOLS.length) {
-            protocolIndexRef.current = index;
-            setProtocolIndex(index);
-            setError(undefined);
+            chooseProtocol(index);
           }
           return true;
         }
         if (key.name === "up") {
-          setProtocolIndex((index) =>
-            index === null ? PROTOCOLS.length - 1 : Math.max(0, index - 1),
+          const current = protocolIndexRef.current;
+          chooseProtocol(
+            current === null ? PROTOCOLS.length - 1 : Math.max(0, current - 1),
           );
           return true;
         }
         if (key.name === "down") {
-          setProtocolIndex((index) =>
-            index === null ? 0 : Math.min(PROTOCOLS.length - 1, index + 1),
+          const current = protocolIndexRef.current;
+          chooseProtocol(
+            current === null ? 0 : Math.min(PROTOCOLS.length - 1, current + 1),
           );
           return true;
         }
         if (isEnter(key)) {
-          const chosen = protocolIndexRef.current;
+          const chosen = protocolIndexRef.current ?? protocolIndex;
           if (chosen === null) {
             setError(t("setup.protocolRequired"));
             return true;

@@ -106,6 +106,20 @@ describe("ProviderSetupScreen", () => {
     );
   });
 
+  // The hint under the list tells the reader to pick with the arrows. The
+  // screen used to keep the arrow choice only in React state, while Enter read
+  // the synchronous ref the digit keys write, so the instructed path always
+  // answered "Choose a protocol before continuing."
+  it("selects a protocol with the arrow keys", async () => {
+    const { tree } = renderScreen();
+
+    await pressUntil(tree, "\u001b[B", (frame) => frame.includes("❯ 1)"));
+    await pressUntil(tree, "\r", (frame) => frame.includes("Base URL"));
+    expect(tree.lastFrame() ?? "").not.toContain(
+      "Choose a protocol before continuing",
+    );
+  });
+
   it("keeps the key step open when the key is empty", async () => {
     const { tree, onComplete } = renderScreen();
 
