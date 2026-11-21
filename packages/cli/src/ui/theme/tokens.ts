@@ -50,6 +50,8 @@ export interface Theme {
   suggestion: string;
   /** Code highlight colours for fenced blocks and diff context lines. */
   syntax: SyntaxHighlighterTheme;
+  /** Display name of the syntax palette, shown in the theme picker footer. */
+  syntaxName: string;
   tool: {
     pendingBackground: string;
     successBackground: string;
@@ -131,6 +133,7 @@ export const darkTheme: Theme = {
     regex: "red",
     default: "white",
   },
+  syntaxName: "TNT Dark",
 };
 
 /** Tencent Design Dark Theme (Flat solid colors, Tencent Blue brand accent) */
@@ -194,6 +197,7 @@ export const tencentDarkTheme: Theme = {
     regex: "#f56c6c",
     default: "#e7e9eb",
   },
+  syntaxName: "Tencent Dark",
 };
 
 /** Tencent Design Light Theme (Flat solid colors, high readability) */
@@ -257,6 +261,7 @@ export const tencentLightTheme: Theme = {
     regex: "#c0352b",
     default: "#181818",
   },
+  syntaxName: "Tencent Light",
 };
 
 /**
@@ -295,10 +300,175 @@ export const claudeTheme: Theme = {
   tool: { ...darkTheme.tool },
   diff: { ...darkTheme.diff },
   syntax: { ...darkTheme.syntax },
+  syntaxName: "TNT Dark",
+};
+
+/**
+ * Colorblind-friendly variants: the diff greens/reds become blue/orange so
+ * deutan/protan readers can tell removed from added lines apart.
+ */
+const darkColorblindTheme: Theme = {
+  ...darkTheme,
+  syntaxName: "TNT Dark (colorblind-friendly)",
+  diff: {
+    addBackground: "#3d2b14",
+    addText: "#e0a45c",
+    delBackground: "#1c2d4a",
+    delText: "#7aa7e8",
+    contextText: "white",
+    gutterText: "gray",
+    hunkBackground: "#1f242c",
+    hunkText: "cyan",
+  },
+};
+
+const lightColorblindTheme: Theme = {
+  ...tencentLightTheme,
+  syntaxName: "TNT Light (colorblind-friendly)",
+  diff: {
+    addBackground: "#f5e8d5",
+    addText: "#a35c1a",
+    delBackground: "#dbe7f5",
+    delText: "#2b5c8a",
+    contextText: "#333333",
+    gutterText: "#999999",
+    hunkBackground: "#f0f2f5",
+    hunkText: "#0052d9",
+  },
+};
+
+/**
+ * ANSI-only variants: every token maps to one of the terminal's own 16
+ * colours, so a terminal that overrides its palette stays in control of the
+ * exact shades.
+ */
+const darkAnsiTheme: Theme = {
+  ...darkTheme,
+  syntaxName: "TNT Dark (ANSI)",
+  text: {
+    primary: "white",
+    secondary: "gray",
+    subtle: "blackBright",
+    inverse: "black",
+  },
+  status: {
+    success: "green",
+    error: "redBright",
+    warning: "yellow",
+    running: "cyan",
+    idle: "gray",
+  },
+  border: {
+    default: "blackBright",
+    focus: "cyanBright",
+  },
+  background: {
+    composer: "blackBright",
+  },
+  accent: "cyan",
+  user: "blue",
+  claude: "cyan",
+  claudeShimmer: "cyanBright",
+  permission: "blue",
+  suggestion: "cyan",
+  tool: {
+    pendingBackground: "blackBright",
+    successBackground: "green",
+    errorBackground: "red",
+    canceledBackground: "yellow",
+    output: "white",
+    hint: "gray",
+  },
+  diff: {
+    addBackground: "green",
+    addText: "black",
+    delBackground: "red",
+    delText: "black",
+    contextText: "white",
+    gutterText: "gray",
+    hunkBackground: "magenta",
+    hunkText: "black",
+  },
+  syntax: {
+    keyword: "magenta",
+    string: "green",
+    comment: "gray",
+    number: "cyan",
+    operator: "white",
+    punctuation: "white",
+    function: "yellow",
+    variable: "white",
+    property: "blue",
+    class: "yellow",
+    constant: "cyan",
+    regex: "red",
+    default: "white",
+  },
+};
+
+const lightAnsiTheme: Theme = {
+  ...lightColorblindTheme,
+  syntaxName: "TNT Light (ANSI)",
+  text: {
+    primary: "black",
+    secondary: "blackBright",
+    subtle: "blackBright",
+    inverse: "white",
+  },
+  status: {
+    success: "green",
+    error: "red",
+    warning: "yellow",
+    running: "blue",
+    idle: "blackBright",
+  },
+  border: {
+    default: "blackBright",
+    focus: "blue",
+  },
+  accent: "blue",
+  user: "blue",
+  claude: "blue",
+  claudeShimmer: "magenta",
+  permission: "blue",
+  suggestion: "blue",
+  diff: {
+    addBackground: "green",
+    addText: "black",
+    delBackground: "red",
+    delText: "black",
+    contextText: "black",
+    gutterText: "blackBright",
+    hunkBackground: "magenta",
+    hunkText: "black",
+  },
+  syntax: {
+    keyword: "magenta",
+    string: "green",
+    comment: "blackBright",
+    number: "yellow",
+    operator: "black",
+    punctuation: "black",
+    function: "blue",
+    variable: "black",
+    property: "blue",
+    class: "yellow",
+    constant: "green",
+    regex: "red",
+    default: "black",
+  },
 };
 
 export type BuiltInThemeName =
-  "dark" | "tencent-dark" | "tencent-light" | "light" | "claude";
+  | "dark"
+  | "light"
+  | "dark-colorblind"
+  | "light-colorblind"
+  | "dark-ansi"
+  | "light-ansi"
+  | "tencent-dark"
+  | "tencent-light"
+  | "claude";
 
 /**
  * A built-in name, or the name of a file under `<home>/themes/<name>.json`.
@@ -309,9 +479,13 @@ export type ThemeName = BuiltInThemeName | (string & {});
 
 export const themes: Record<BuiltInThemeName, Theme> = {
   dark: darkTheme,
+  light: tencentLightTheme,
+  "dark-colorblind": darkColorblindTheme,
+  "light-colorblind": lightColorblindTheme,
+  "dark-ansi": darkAnsiTheme,
+  "light-ansi": lightAnsiTheme,
   "tencent-dark": tencentDarkTheme,
   "tencent-light": tencentLightTheme,
-  light: tencentLightTheme,
   claude: claudeTheme,
 };
 

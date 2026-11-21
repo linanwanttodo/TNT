@@ -47,13 +47,15 @@ function selectorFrame(
 }
 
 describe("ThemeSelector", () => {
-  it("lists auto and the four named themes with the picker hint", () => {
+  it("lists Claude Code's theme options with the picker hint", () => {
     const frame = selectorFrame();
 
     expect(frame).toContain("Theme");
-    expect(frame).toContain("auto");
-    expect(frame).toContain("dark");
-    expect(frame).toContain("tencent-light");
+    expect(frame).toContain("Auto (match terminal)");
+    expect(frame).toContain("Dark mode");
+    expect(frame).toContain("Dark mode (colorblind-friendly)");
+    expect(frame).toContain("Dark mode (ANSI colors only)");
+    expect(frame).toContain("New custom theme");
     expect(frame).toContain("Enter to select");
   });
 
@@ -69,13 +71,11 @@ describe("ThemeSelector", () => {
       />,
     );
 
-    // Down twice: dark -> tencent-dark preview, then Enter commits. Each key is
+    // Down twice: dark -> light preview, then Enter commits. Each key is
     // waited for by its effect: a fixed sleep lost a keystroke on the Windows
     // lane and read as a selector that does not navigate.
     await pressUntilMet(tree, "\u001b[B", () => previews.includes("dark"));
-    await pressUntilMet(tree, "\u001b[B", () =>
-      previews.includes("tencent-dark"),
-    );
+    await pressUntilMet(tree, "\u001b[B", () => previews.includes("light"));
     // The preview fires from the navigation callback; the index Enter reads is
     // committed a frame later. Delivery is the helper's business, this settle is
     // the component's.
@@ -84,18 +84,18 @@ describe("ThemeSelector", () => {
     tree.unmount();
 
     expect(previews).toContain("dark");
-    expect(previews).toContain("tencent-dark");
-    expect(selections).toEqual(["tencent-dark"]);
+    expect(previews).toContain("light");
+    expect(selections).toEqual(["light"]);
   });
 });
 
 describe("persistThemeChoice / readPersistedTheme", () => {
   it("writes the choice to the project settings file", () => {
-    persistThemeChoice("tencent-light");
+    persistThemeChoice("dark-colorblind");
     expect(mockedWrite).toHaveBeenCalledWith(
       "/tmp/tnt-theme-test/settings.json",
       "theme",
-      "tencent-light",
+      "dark-colorblind",
     );
   });
 
@@ -106,9 +106,10 @@ describe("persistThemeChoice / readPersistedTheme", () => {
 
 describe("themeOfChoice", () => {
   it("resolves named choices directly", () => {
-    expect(themeOfChoice("tencent-light", true)).toBe(
-      getTheme("tencent-light"),
+    expect(themeOfChoice("dark-colorblind", true)).toBe(
+      getTheme("dark-colorblind"),
     );
+    expect(themeOfChoice("light-ansi", true)).toBe(getTheme("light-ansi"));
     expect(themeOfChoice("dark", false)).toBe(getTheme("dark"));
   });
 

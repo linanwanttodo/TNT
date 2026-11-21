@@ -187,9 +187,13 @@ export function resolveThemeName(name?: string): ThemeName {
   if (normalized !== "auto") {
     if (
       normalized === "dark" ||
+      normalized === "light" ||
+      normalized === "dark-colorblind" ||
+      normalized === "light-colorblind" ||
+      normalized === "dark-ansi" ||
+      normalized === "light-ansi" ||
       normalized === "tencent-dark" ||
       normalized === "tencent-light" ||
-      normalized === "light" ||
       normalized === "claude"
     ) {
       return normalized;
