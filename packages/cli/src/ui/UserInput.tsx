@@ -34,7 +34,6 @@ import {
   getThinkingDepth,
 } from "./components/BottomStatusBar.js";
 import { GoalIndicator } from "./components/GoalIndicator.js";
-import { HalfLinePaddedBox } from "./components/HalfLinePaddedBox.js";
 import { modeBadge } from "./components/ModeIndicator.js";
 import { SuggestionOverlay } from "./components/SuggestionOverlay.js";
 import {
@@ -70,6 +69,7 @@ import {
 } from "./suggestionSources.js";
 import { useTheme } from "./theme/tokens.js";
 import { UpdateNotification } from "./UpdateNotification.js";
+import { composeRule } from "./utils/borderLine.js";
 import { formatCostAmount } from "./utils/contextUsageLine.js";
 import { keyPerfMark, keyPerfSettle, keyPerfSummary } from "./utils/keyPerf.js";
 
@@ -1165,6 +1165,14 @@ const UserInput: React.FC<UserInputProps> = ({
       ? t("composer.placeholderRemote")
       : t("composer.placeholder"));
 
+  // Both rules take the mode's colour, so the frame itself says which policy
+  // is in effect: shell mode warns, remote mode uses the focus colour.
+  const composerColor = showBashMode
+    ? theme.status.warning
+    : isRemoteMode
+      ? theme.border.focus
+      : theme.accent;
+
   return (
     <Box flexDirection="column">
       {/* One muted row above the composer while the history search is open:
@@ -1254,26 +1262,27 @@ const UserInput: React.FC<UserInputProps> = ({
 
       <TodoIndicator />
 
-      {/* The gemini-style input box: a solid surface band with half-line
-          padding, the prompt pointer and the buffer's visual lines. */}
-      <HalfLinePaddedBox backgroundBaseColor={theme.background.composer}>
-        <Box flexGrow={1} flexDirection="row" paddingX={1}>
-          <ComposerPrompt
-            bash={showBashMode}
-            remote={isRemoteMode}
-            busy={isWaitingForResponse || isCompacting}
-            subtle={theme.text.primary}
-            warning={theme.status.warning}
+      {/* The input box is framed by two horizontal rules and nothing on the
+          sides: one line above and one below, with the prompt and the
+          buffer's visual lines between them. */}
+      <Text color={composerColor}>{composeRule(columns)}</Text>
+      <Box flexGrow={1} flexDirection="row" paddingX={1}>
+        <ComposerPrompt
+          bash={showBashMode}
+          remote={isRemoteMode}
+          busy={isWaitingForResponse || isCompacting}
+          subtle={theme.text.primary}
+          warning={theme.status.warning}
+        />
+        <Box flexGrow={1} flexDirection="column">
+          <TextInput
+            buffer={buffer}
+            placeholder={placeholderText}
+            focus={inputMode || isWaitingForResponse}
           />
-          <Box flexGrow={1} flexDirection="column">
-            <TextInput
-              buffer={buffer}
-              placeholder={placeholderText}
-              focus={inputMode || isWaitingForResponse}
-            />
-          </Box>
         </Box>
-      </HalfLinePaddedBox>
+      </Box>
+      <Text color={composerColor}>{composeRule(columns)}</Text>
 
       {/* TNT_KEY_PERF=1: live keystroke→commit latency, for diagnosing
         fast-typing jank in the user's own terminal/IME environment. */}

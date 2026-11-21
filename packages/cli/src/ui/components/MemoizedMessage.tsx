@@ -15,7 +15,6 @@ import { useTheme } from "../theme/tokens.js";
 import { sanitizeTerminalText } from "../utils/terminalTextSafety.js";
 
 import { CompactionBoundary } from "./CompactionBoundary.js";
-import { HalfLinePaddedBox } from "./HalfLinePaddedBox.js";
 import { ThinkingMessage } from "./ThinkingMessage.js";
 import { ToolGroupDisplay } from "./ToolGroupDisplay.js";
 
@@ -106,10 +105,8 @@ const ClickableUserTurn: React.FC<{
     }
   });
   return (
-    <Box ref={bandRef}>
-      <HalfLinePaddedBox backgroundBaseColor={theme.background.composer}>
-        {children}
-      </HalfLinePaddedBox>
+    <Box ref={bandRef} width="100%" backgroundColor={theme.background.composer}>
+      {children}
     </Box>
   );
 };
@@ -211,11 +208,10 @@ export const MemoizedMessage = memo<MemoizedMessageProps>(
 
         {(hasContent || isUser || isStreaming) &&
           (isUser ? (
-            // The user's turn reads like the input box it was typed into: the
-            // same solid surface band, the `>` pointer and the raw text.
-            // Clicking it hands the text back to the composer for editing,
-            // the same gesture the session selector uses to recall a queued
-            // message.
+            // The user's turn keeps the composer surface colour on that row
+            // only, with the `>` pointer and the raw text. Clicking it hands
+            // the text back to the composer for editing, the same gesture the
+            // session selector uses to recall a queued message.
             <ClickableUserTurn text={userEditSource}>
               <Box flexDirection="row" paddingX={1}>
                 <Text color={theme.text.subtle}>{" > "}</Text>

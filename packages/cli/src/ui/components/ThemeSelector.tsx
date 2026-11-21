@@ -1,5 +1,7 @@
-import { Box, Text, useInput, useStdout } from "ink";
+import fs from "fs";
+import path from "path";
 
+import { Box, Text, useInput, useStdout } from "ink";
 import React, { useEffect, useState } from "react";
 
 import {
@@ -7,10 +9,8 @@ import {
   readSettingsString,
   writeSettingsValue,
 } from "../../config/settingsFiles.js";
-import { globalDir } from "../../config/globalDir.js";
-import fs from "fs";
-import path from "path";
 import { t } from "../../i18n/index.js";
+import { symbols } from "../symbols.js";
 import {
   getTheme,
   themeFileFor,
@@ -18,6 +18,7 @@ import {
   type Theme,
   type ThemeName,
 } from "../theme/tokens.js";
+
 import { ToolDiffView } from "./ToolDiffView.js";
 
 export interface ThemeOption {
@@ -65,8 +66,8 @@ index 83db48f..bf2d4f3 100644
 +++ b/greet.js
 @@ -1,3 +1,3 @@
  function greet() {
--  console.log("Hello, World!");
-+  console.log("Hello, Claude!");
+-  return "Hello, World!";
++  return "Hello, Claude!";
  }`;
 
 /** Resolves the active display theme to the option that represents it. */
@@ -99,6 +100,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
   const [syntaxEnabled, setSyntaxEnabled] = useState(true);
   const { stdout } = useStdout();
   const columns = Math.max(20, (stdout?.columns ?? 80) - 4);
+  const marks = symbols();
 
   // The persisted choice is the marker for which row is "current": the
   // preview may repaint the whole UI, but the saved setting is what the next
@@ -219,7 +221,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
               }
               bold={isSelected}
             >
-              {isSelected ? "❯ " : "  "}
+              {isSelected ? `${marks.selected} ` : "  "}
             </Text>
             <Text
               color={
@@ -229,7 +231,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
               }
               bold
             >
-              {isCurrent ? "✓ " : "  "}
+              {isCurrent ? `${marks.check} ` : "  "}
             </Text>
             <Text
               color={

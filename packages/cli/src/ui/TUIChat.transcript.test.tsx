@@ -127,10 +127,11 @@ describe("TUIChat transcript", () => {
 
       expect(answerIndex).toBeGreaterThan(-1);
       expect(composerIndex).toBeGreaterThan(answerIndex);
-      // The gemini-style box has no rule lines; the footer row below it
-      // carries the mode and the working directory.
-      expect(lines[composerIndex - 1]).not.toContain("[Auto]");
-      expect(lines[composerIndex + 1]).toContain("Auto");
+      // Two rule lines wrap the input; the footer row below them carries the
+      // mode and the working directory.
+      expect(lines[composerIndex - 1]).toMatch(/^─+$/);
+      expect(lines[composerIndex + 1]).toMatch(/^─+$/);
+      expect(lines[composerIndex + 2]).toContain("Auto");
       expect(lines.some((line) => line.includes("│"))).toBe(false);
       // The frame stays inside the twelve rows it was given.
       expect(lines.length).toBeLessThanOrEqual(12);

@@ -35,6 +35,9 @@ const DELEGATES_TO: Record<string, string> = {
   "DiffViewer.tsx": "ColoredDiff",
   "ToolResultSummary.tsx": "ColoredDiff",
   "components/ToolPermissionSelector.tsx": "ToolDiffView",
+  // The picker's diff is a constant sample, not model or tool output, and it
+  // is still rendered through the component that sanitizes external text.
+  "components/ThemeSelector.tsx": "ToolDiffView",
 };
 
 /**

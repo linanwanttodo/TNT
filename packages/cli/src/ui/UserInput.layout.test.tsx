@@ -6,13 +6,14 @@ import { KeypressProvider } from "./contexts/KeypressContext.js";
 import { promptMarker, UserInput } from "./UserInput.js";
 
 /**
- * Frame-internal counting tests for the gemini-style composer: a solid
- * surface band around `> ` and the buffer's lines, and one footer row below
- * with the mode, directory, model and reasoning depth. There are no rule
- * lines and no side rails any more.
+ * Frame-internal counting tests for the composer: two horizontal rules wrap
+ * `> ` and the buffer's lines, and one footer row below carries the mode,
+ * directory, model and reasoning depth. There are no side rails.
  */
 
 const tick = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const RULE = /^─+$/;
 
 const renderInput = async () => {
   const tree = render(
@@ -29,31 +30,33 @@ const renderInput = async () => {
   return tree;
 };
 
-describe("gemini composer layout", () => {
+describe("composer layout", () => {
   beforeAll(() => {
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  it("reserves exactly two rows: the input band and the footer", async () => {
+  it("wraps the input in two rules and keeps the footer below", async () => {
     const tree = await renderInput();
     try {
       const lines = (tree.lastFrame() ?? "").split("\n");
-      // No blank filler rows between the composer and the footer: the dock
-      // is two lines, not a stack of rules and hints.
-      expect(lines).toHaveLength(2);
+      // Top rule, input row, closing rule, footer: no blank filler rows.
+      expect(lines).toHaveLength(4);
       expect(lines.filter((line) => line.trim() === "")).toHaveLength(0);
-      expect(lines[0]).toContain(">");
-      expect(lines[1]).toContain("Auto");
+      expect(lines[0]).toMatch(RULE);
+      expect(lines[1]).toContain(">");
+      expect(lines[2]).toMatch(RULE);
+      expect(lines[3]).toContain("Auto");
     } finally {
       tree.unmount();
     }
   });
 
-  it("drops the claude-code rule frame and shows the mode once", async () => {
+  it("draws no side rails and shows the mode once", async () => {
     const tree = await renderInput();
     try {
       const frame = tree.lastFrame() ?? "";
-      expect(frame).not.toContain("─");
+      const rules = frame.split("\n").filter((line) => RULE.test(line));
+      expect(rules).toHaveLength(2);
       expect(frame).not.toContain("│");
       expect(frame).not.toContain("[Auto]");
       expect(frame.split("Auto")).toHaveLength(2);
@@ -65,7 +68,7 @@ describe("gemini composer layout", () => {
   it("shows the working directory on the same footer row as the mode", async () => {
     const tree = await renderInput();
     try {
-      const [, footer] = (tree.lastFrame() ?? "").split("\n");
+      const footer = (tree.lastFrame() ?? "").split("\n").at(-1) ?? "";
       expect(footer).toContain("Auto");
       // POSIX home collapses to `~`; Windows keeps its drive path, so the
       // assertion accepts either separator rather than assuming `/`.

@@ -81,10 +81,12 @@ describe("TUIChat layout", () => {
         line.includes("Ask anything"),
       );
       expect(composerIndex).toBeGreaterThan(-1);
-      // The gemini-style box has no rule lines; the footer row below it
-      // carries the mode and the working directory.
+      // Two rule lines wrap the input; the footer row below them carries the
+      // mode and the working directory.
       expect(frame).not.toContain("[Auto]");
-      const footer = content[composerIndex + 1];
+      expect(content[composerIndex - 1]).toMatch(/^─+$/);
+      expect(content[composerIndex + 1]).toMatch(/^─+$/);
+      const footer = content[composerIndex + 2];
       expect(footer).toContain("Auto");
       // No frame and no side rails anywhere in the composer.
       expect(content.some((line) => line.includes("│"))).toBe(false);
