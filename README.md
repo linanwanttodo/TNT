@@ -1,3 +1,13 @@
+<p align="center">
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://raw.githubusercontent.com/linanwanttodo/TNT/main/media/tnt-mark-dark.svg"
+    />
+    <img src="media/tnt-mark-light.svg" alt="TNT" width="96" />
+  </picture>
+</p>
+
 <h1 align="center">TNT</h1>
 
 <p align="center">Pioneering open-source coding agent</p>
@@ -9,10 +19,6 @@
 <a href="https://github.com/linanwanttodo/TNT/releases"><img src="https://img.shields.io/badge/Changelog-GitHub_Releases-blue" /></a>
 
 </div>
-
-<p align="center">
-  <img src="media/github-readme.png" alt="Banner" />
-</p>
 
 ## What is TNT?
 
