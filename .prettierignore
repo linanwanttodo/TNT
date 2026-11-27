@@ -1,4 +1,5 @@
 core/.continue-test
+core/test/.continue-test/
 docs/.docusaurus
 docs/**/*.mdx
 docs-site/.next
@@ -13,7 +14,7 @@ CHANGELOG.md
 core/vendor
 coverage
 # Local agent and test scratch directories, never part of a checkout.
-.mimosa
+.mimosa/
 .impeccable
 .v2c
 .vitest
@@ -22,6 +23,7 @@ coverage
 # only reads the ignore files passed to it, so the nested ones are invisible here.
 docs-site/public/search-index*.json
 packages/config-yaml/schema/
+packages/cli/build-meta.json
 # e2e
 packages/sdk
 .conductor

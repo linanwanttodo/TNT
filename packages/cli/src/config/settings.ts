@@ -116,6 +116,11 @@ export function isValidSettings(value: unknown): value is TntSettings {
  * that carries them has those two keys dropped; the rest of the file still
  * applies. This is the normal shape of a Claude-compatible settings file, so
  * the drop is a debug note rather than a warning that reads as a failure.
+ *
+ * The same applies to permission keys TNT does not own (Claude writes
+ * `defaultMode` and `additionalDirectories` under `permissions`). They are
+ * dropped from the projection, not treated as a malformed file: rejecting the
+ * file would discard the allow/ask/deny lists it does understand.
  */
 function sanitizeSettings(parsed: unknown, file: string): TntSettings | null {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -126,6 +131,28 @@ function sanitizeSettings(parsed: unknown, file: string): TntSettings | null {
     delete copy.model;
     delete copy.models;
     logger.debug("Ignoring model fields in settings.json", { path: file });
+  }
+  const permissions = copy.permissions;
+  if (
+    permissions &&
+    typeof permissions === "object" &&
+    !Array.isArray(permissions)
+  ) {
+    const record = permissions as Record<string, unknown>;
+    const foreign = Object.keys(record).filter(
+      (key) => !PERMISSION_LISTS.includes(key as never),
+    );
+    if (foreign.length > 0) {
+      const kept: Record<string, unknown> = {};
+      for (const key of PERMISSION_LISTS) {
+        if (record[key] !== undefined) kept[key] = record[key];
+      }
+      copy.permissions = kept;
+      logger.debug("Ignoring foreign permission keys in settings.json", {
+        path: file,
+        keys: foreign,
+      });
+    }
   }
   if (!isValidSettings(copy)) {
     logger.warn("Invalid settings.json structure", { path: file });

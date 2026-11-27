@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
+
 import { loadInstructionFile } from "./instructionIncludes.js";
 
 /**
@@ -45,7 +47,7 @@ export interface ProjectDoc {
  * marker anywhere on the way up, the working directory is the whole project
  * and the search stops there rather than adopting a parent project.
  */
-export function projectRoot(start: string = process.cwd()): string {
+export function projectRoot(start: string = currentWorkspaceRoot()): string {
   const resolved = path.resolve(start);
   let cursor = resolved;
   for (;;) {
@@ -75,7 +77,7 @@ function directoriesRootToCwd(root: string, cwd: string): string[] {
  * directory last. A directory contributes at most one file: the override when
  * it exists, otherwise the first name in the table.
  */
-export function projectDocFiles(cwd: string = process.cwd()): {
+export function projectDocFiles(cwd: string = currentWorkspaceRoot()): {
   root: string;
   files: string[];
 } {
@@ -113,7 +115,7 @@ function truncatedNote(label: string, budget: number): string {
  * are billed bytes as well.
  */
 export function loadProjectDocs(
-  cwd: string = process.cwd(),
+  cwd: string = currentWorkspaceRoot(),
   maxChars: number = PROJECT_DOCS_MAX_CHARS,
 ): ProjectDoc[] {
   const { root, files } = projectDocFiles(cwd);

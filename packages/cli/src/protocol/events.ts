@@ -112,16 +112,38 @@ export type AgentEvent = AgentEventBase &
     | {
         type: "subagent.reported";
         agentName: string;
+        childSessionId?: string;
         content: string;
       }
     | {
         type: "subagent.finished";
         agentName: string;
+        childSessionId?: string;
         content: string;
         success: boolean;
         /** A user stop aborted the run; the member is cancelled, not failed. */
         cancelled?: boolean;
         verdict?: string;
+      }
+    | {
+        type: "subagent.ping";
+        agentName: string;
+        childSessionId?: string;
+        content: string;
+      }
+    | {
+        type: "subagent.steered";
+        agentName: string;
+        childSessionId?: string;
+        content: string;
+      }
+    | {
+        type: "team.brief";
+        teamRunId: string;
+        from: string;
+        to: string;
+        briefType: "task" | "question" | "sync" | "verdict";
+        content: string;
       }
     /** The chat model this process now runs. */
     | { type: "model.changed"; model: string }

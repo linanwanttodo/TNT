@@ -120,6 +120,8 @@ export interface SessionInfoRecord {
   teamModelOverrides?: Record<string, string>;
   teamRuns?: TeamRunRecord[];
   /** null is an explicit clear; undefined means the record predates the field. */
+  pendingSubagentMessages?: string[] | null;
+  /** null is an explicit clear; undefined means the record predates the field. */
   goalState?: Session["goalState"] | null;
 }
 
@@ -195,6 +197,7 @@ interface SessionScalars {
   activeTeam?: string;
   teamModelOverrides?: Record<string, string>;
   teamRuns?: TeamRunRecord[];
+  pendingSubagentMessages?: string[];
   goalState?: Session["goalState"];
 }
 
@@ -286,6 +289,7 @@ function scalarOf(session: Session): SessionScalars {
     activeTeam: session.activeTeam,
     teamModelOverrides: session.teamModelOverrides,
     teamRuns: session.teamRuns,
+    pendingSubagentMessages: session.pendingSubagentMessages,
     goalState: session.goalState,
   };
 }
@@ -460,6 +464,10 @@ function projectRecords(records: SessionRecord[]): {
       if (record.teamModelOverrides !== undefined)
         scalars.teamModelOverrides = record.teamModelOverrides;
       if (record.teamRuns !== undefined) scalars.teamRuns = record.teamRuns;
+      if (record.pendingSubagentMessages !== undefined) {
+        scalars.pendingSubagentMessages =
+          record.pendingSubagentMessages ?? undefined;
+      }
       if (record.goalState !== undefined) {
         scalars.goalState = record.goalState ?? undefined;
       }
@@ -499,6 +507,93 @@ function legacyMeta(
     schemaVersion: 2,
     sizeBytes: stat.size,
   };
+}
+
+function buildHistoryRecords(
+  session: Session,
+  previous: BoundSession,
+  timestamp: string,
+): SessionRecord[] {
+  const next = session.history;
+  const prev = previous.history;
+  const prevIds = prev.map(ensureMessageId);
+  const nextIds = next.map(ensureMessageId);
+  const records: SessionRecord[] = [];
+  const compactionIndex = next.findIndex(isCompactionItem);
+  const compactionChanged =
+    compactionIndex >= 0 &&
+    (!previous.compactionIds.has(nextIds[compactionIndex]) ||
+      nextIds[compactionIndex] !== prevIds[compactionIndex] ||
+      next.length < prev.length);
+
+  if (compactionChanged) {
+    const summaryId = nextIds[compactionIndex];
+    stampMissingTimestamps(next, timestamp);
+    records.push({
+      type: "compaction",
+      timestamp,
+      firstKeptMessageId: summaryId,
+      history: next,
+      summary: next[compactionIndex].conversationSummary,
+    });
+    previous.compactionIds.add(summaryId);
+    return records;
+  }
+
+  let common = 0;
+  while (
+    common < prevIds.length &&
+    common < nextIds.length &&
+    prevIds[common] === nextIds[common]
+  ) {
+    common += 1;
+  }
+
+  const isPrefixExtension =
+    common === prevIds.length && nextIds.length >= prevIds.length;
+  const isSimpleRewind =
+    common === nextIds.length &&
+    nextIds.every((id, index) => id === prevIds[index]);
+
+  if (isPrefixExtension) {
+    for (let index = 0; index < common; index += 1) {
+      if (!isDeepStrictEqual(prev[index], next[index])) {
+        const itemTimestamp = messageTimestampOf(next[index]) ?? timestamp;
+        setMessageTimestamp(next[index], itemTimestamp);
+        records.push({
+          type: "message-patch",
+          messageId: nextIds[index],
+          timestamp: itemTimestamp,
+          item: next[index],
+        });
+      }
+    }
+    for (let index = common; index < next.length; index += 1) {
+      const itemTimestamp = messageTimestampOf(next[index]) ?? timestamp;
+      setMessageTimestamp(next[index], itemTimestamp);
+      records.push({
+        type: "message",
+        messageId: nextIds[index],
+        parentId: index > 0 ? nextIds[index - 1] : null,
+        timestamp: itemTimestamp,
+        item: next[index],
+      });
+    }
+  } else if (isSimpleRewind) {
+    records.push({
+      type: "rewind",
+      timestamp,
+      messageId: nextIds.length > 0 ? nextIds[nextIds.length - 1] : null,
+    });
+  } else {
+    stampMissingTimestamps(next, timestamp);
+    records.push({
+      type: "snapshot",
+      timestamp,
+      history: next,
+    });
+  }
+  return records;
 }
 
 export class SessionStore {
@@ -691,7 +786,6 @@ export class SessionStore {
    * replaced the visible history writes a compaction record instead of
    * rewriting or deleting the earlier bodies.
    */
-  // eslint-disable-next-line max-statements
   sync(session: Session): void {
     assertSessionId(session.sessionId);
     if (this.isLeasedByAnotherProcess(session.sessionId)) {
@@ -728,86 +822,9 @@ export class SessionStore {
       return;
     }
 
-    const next = session.history;
-    const prev = previous.history;
-    const prevIds = prev.map(ensureMessageId);
-    const nextIds = next.map(ensureMessageId);
-    const records: SessionRecord[] = [];
     const timestamp = nowIso();
-
-    const compactionIndex = next.findIndex(isCompactionItem);
-    const compactionChanged =
-      compactionIndex >= 0 &&
-      (!previous.compactionIds.has(nextIds[compactionIndex]) ||
-        nextIds[compactionIndex] !== prevIds[compactionIndex] ||
-        next.length < prev.length);
-
-    if (compactionChanged) {
-      const summaryId = nextIds[compactionIndex];
-      stampMissingTimestamps(next, timestamp);
-      records.push({
-        type: "compaction",
-        timestamp,
-        firstKeptMessageId: summaryId,
-        history: next,
-        summary: next[compactionIndex].conversationSummary,
-      });
-      previous.compactionIds.add(summaryId);
-    } else {
-      let common = 0;
-      while (
-        common < prevIds.length &&
-        common < nextIds.length &&
-        prevIds[common] === nextIds[common]
-      ) {
-        common += 1;
-      }
-
-      const isPrefixExtension =
-        common === prevIds.length && nextIds.length >= prevIds.length;
-      const isSimpleRewind =
-        common === nextIds.length &&
-        nextIds.every((id, index) => id === prevIds[index]);
-
-      if (isPrefixExtension) {
-        for (let index = 0; index < common; index += 1) {
-          if (!isDeepStrictEqual(prev[index], next[index])) {
-            const itemTimestamp = messageTimestampOf(next[index]) ?? timestamp;
-            setMessageTimestamp(next[index], itemTimestamp);
-            records.push({
-              type: "message-patch",
-              messageId: nextIds[index],
-              timestamp: itemTimestamp,
-              item: next[index],
-            });
-          }
-        }
-        for (let index = common; index < next.length; index += 1) {
-          const itemTimestamp = messageTimestampOf(next[index]) ?? timestamp;
-          setMessageTimestamp(next[index], itemTimestamp);
-          records.push({
-            type: "message",
-            messageId: nextIds[index],
-            parentId: index > 0 ? nextIds[index - 1] : null,
-            timestamp: itemTimestamp,
-            item: next[index],
-          });
-        }
-      } else if (isSimpleRewind) {
-        records.push({
-          type: "rewind",
-          timestamp,
-          messageId: nextIds.length > 0 ? nextIds[nextIds.length - 1] : null,
-        });
-      } else {
-        stampMissingTimestamps(next, timestamp);
-        records.push({
-          type: "snapshot",
-          timestamp,
-          history: next,
-        });
-      }
-    }
+    const records = buildHistoryRecords(session, previous, timestamp);
+    const next = session.history;
 
     const scalars = scalarOf(session);
     if (!sameScalars(previous.scalars, scalars)) {
@@ -824,6 +841,7 @@ export class SessionStore {
         activeTeam: scalars.activeTeam,
         teamModelOverrides: scalars.teamModelOverrides,
         teamRuns: scalars.teamRuns,
+        pendingSubagentMessages: scalars.pendingSubagentMessages ?? null,
         goalState: scalars.goalState ?? null,
       });
     }
@@ -1210,6 +1228,7 @@ export class SessionStore {
         activeTeam: projected.scalars.activeTeam,
         teamModelOverrides: projected.scalars.teamModelOverrides,
         teamRuns: projected.scalars.teamRuns,
+        pendingSubagentMessages: projected.scalars.pendingSubagentMessages,
         goalState: projected.scalars.goalState,
         parentSessionId: projected.header.parentSessionId,
         subagentType: projected.header.subagentType,
@@ -1250,6 +1269,7 @@ export class SessionStore {
       activeTeam: projected.scalars.activeTeam,
       teamModelOverrides: projected.scalars.teamModelOverrides,
       teamRuns: projected.scalars.teamRuns,
+      pendingSubagentMessages: projected.scalars.pendingSubagentMessages,
       goalState: projected.scalars.goalState,
       parentSessionId: projected.header.parentSessionId,
       subagentType: projected.header.subagentType,
@@ -1317,6 +1337,7 @@ export class SessionStore {
       activeTeam: scalars.activeTeam,
       teamModelOverrides: scalars.teamModelOverrides,
       teamRuns: scalars.teamRuns,
+      pendingSubagentMessages: scalars.pendingSubagentMessages,
       goalState: scalars.goalState ?? null,
     });
 

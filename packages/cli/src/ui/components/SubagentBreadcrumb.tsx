@@ -12,8 +12,7 @@ interface SubagentBreadcrumbProps {
 
 /**
  * Header for a delegated transcript. Names the agent and the parent session,
- * and states up front that the transcript cannot be added to, so a delegated
- * run is never mistaken for a conversation the user can continue.
+ * and points to the parent messaging tool used to resume the child.
  */
 const SubagentBreadcrumb: React.FC<SubagentBreadcrumbProps> = ({
   subagentType,

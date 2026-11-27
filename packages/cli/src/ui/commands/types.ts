@@ -41,6 +41,7 @@ export interface SlashCommandResult {
   openUpdateSelector?: boolean;
   openSessionSelector?: boolean;
   openSubagentsSelector?: boolean;
+  openTeamTasksSelector?: boolean;
   /** Load this session instead of the current one, e.g. returning to a parent. */
   loadSessionId?: string;
   openJobsSelector?: boolean;

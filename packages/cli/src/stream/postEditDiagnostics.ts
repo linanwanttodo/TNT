@@ -5,6 +5,7 @@ import { getLspManager } from "../lsp/manager.js";
 import { parseApplyPatch } from "../tools/applyPatch.js";
 import { formatDiagnostic } from "../tools/diagnostics.js";
 import { logger } from "../utils/logger.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 /** Tools whose successful run changes a file a language server can check. */
 const EDITED_ARGUMENT = {
@@ -65,7 +66,7 @@ function bounded(line: string): string {
 export async function collectPostEditDiagnostics(
   paths: readonly string[],
   manager: DiagnosticManager,
-  root: string = process.cwd(),
+  root: string = currentWorkspaceRoot(),
 ): Promise<string | undefined> {
   const files = [...new Set(paths)].slice(0, MAX_FILES);
   if (files.length === 0) {

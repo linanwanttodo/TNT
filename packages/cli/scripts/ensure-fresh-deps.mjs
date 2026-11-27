@@ -84,7 +84,14 @@ function main() {
       );
       const installed = spawnSync(
         "npm",
-        ["install", "--no-audit", "--no-fund", "--loglevel=error", "--prefix", pkgDir],
+        [
+          "install",
+          "--no-audit",
+          "--no-fund",
+          "--loglevel=error",
+          "--prefix",
+          pkgDir,
+        ],
         { stdio: "inherit", shell: false },
       );
       if (installed.status !== 0) {
@@ -107,7 +114,14 @@ function main() {
       );
       spawnSync(
         "npm",
-        ["install", "--no-audit", "--no-fund", "--loglevel=error", "--prefix", extraDir],
+        [
+          "install",
+          "--no-audit",
+          "--no-fund",
+          "--loglevel=error",
+          "--prefix",
+          extraDir,
+        ],
         { stdio: "inherit", shell: false },
       );
     }

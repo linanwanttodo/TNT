@@ -6,6 +6,7 @@ import { parseMarkdownRule, RuleObject } from "@tnt/config-yaml";
 import { env } from "../config/env.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ConfigServiceState, SERVICE_NAMES } from "../services/types.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { loadInstructionFile } from "./instructionIncludes.js";
 
@@ -49,7 +50,7 @@ export function managedRulesDir(): string {
  * and return the rules with metadata that should be always-applied
  */
 export function loadMarkdownRulesWithMetadata(): RuleObject[] {
-  const cwd = process.cwd();
+  const cwd = currentWorkspaceRoot();
   // Ordered least to most specific, the way the reference layers them: a rule
   // deployed for the machine, then the user's own, then the project's.
   const rulesDirs = [

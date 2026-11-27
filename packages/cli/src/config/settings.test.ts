@@ -76,6 +76,23 @@ describe("settings.json", () => {
     warn.mockRestore();
   });
 
+  it("keeps the permission lists when Claude-only keys ride along", () => {
+    const warn = vi.spyOn(logger, "warn");
+    write({
+      permissions: {
+        allow: ["Read"],
+        defaultMode: "acceptEdits",
+        additionalDirectories: ["/tmp"],
+      },
+    });
+
+    const settings = loadSettings();
+
+    expect(settings.permissions).toEqual({ allow: ["Read"] });
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("maps deny to exclude, most restrictive first", () => {
     const policies = settingsPermissionsToPolicies({
       allow: ["Read"],

@@ -16,6 +16,7 @@ import { MCPMarketplace } from "../MCPMarketplace.js";
 import { MCPSelector } from "../MCPSelector.js";
 import { ModelSelector } from "../ModelSelector.js";
 import { PluginsBrowser } from "../PluginsBrowser.js";
+import { TeamTasksSelector } from "../TeamTasksSelector.js";
 import { UpdateSelector } from "../UpdateSelector.js";
 
 /**
@@ -129,6 +130,12 @@ export const SCREENS: readonly ScreenDefinition[] = [
   {
     id: "jobs",
     render: (props) => <JobsSelector onCancel={props.closeCurrentScreen} />,
+  },
+  {
+    id: "teamTasks",
+    render: (props) => (
+      <TeamTasksSelector onCancel={props.closeCurrentScreen} />
+    ),
   },
   {
     id: "diff",

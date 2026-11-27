@@ -54,8 +54,12 @@ export function subagentStatusText(entry: SubagentTreeEntry): string {
   switch (entry.status) {
     case "running":
       return entry.lastToolInfo ?? t("subagent.tree.initializing");
+    case "waiting_input":
+      return entry.lastToolInfo ?? t("subagent.tree.waitingInput");
     case "done":
       return t("subagent.tree.done");
+    case "cancelled":
+      return t("subagent.tree.cancelled");
     case "failed":
       return entry.error
         ? `${t("subagent.tree.failed")}: ${entry.error}`
@@ -106,7 +110,11 @@ const SubagentTree: React.FC<SubagentTreeProps> = ({
   // finished row has folded, the interval stops instead of re-rendering an
   // idle tree forever.
   const awaitingCollapse = entries.some((entry) => {
-    if (entry.status !== "done" && entry.status !== "failed") {
+    if (
+      entry.status !== "done" &&
+      entry.status !== "failed" &&
+      entry.status !== "cancelled"
+    ) {
       return false;
     }
     const finishedAt = entry.finishedAt ?? entry.startedAt;
@@ -156,7 +164,13 @@ const SubagentTree: React.FC<SubagentTreeProps> = ({
             <Box paddingLeft={3}>
               <Text dimColor>{treeRowPrefix(isLast)}</Text>
               {overflow ? (
-                <Text wrap="truncate-end" dimColor={entry.status !== "running"}>
+                <Text
+                  wrap="truncate-end"
+                  dimColor={
+                    entry.status !== "running" &&
+                    entry.status !== "waiting_input"
+                  }
+                >
                   {truncateToWidth(plainText, available)}
                 </Text>
               ) : (

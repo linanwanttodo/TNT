@@ -7,6 +7,7 @@ import {
   isWithinWorkspace,
   resolveWithinWorkspace,
 } from "../permissions/workspacePath.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { connectBrowser, type BrowserClient } from "./browserClient.js";
 import { Tool } from "./types.js";
@@ -126,7 +127,7 @@ async function saveScreenshot(
   }
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, Buffer.from(result.data, "base64"));
-  return `Saved a screenshot to ${path.relative(process.cwd(), absolute)}.`;
+  return `Saved a screenshot to ${path.relative(currentWorkspaceRoot(), absolute)}.`;
 }
 
 /** The action layer, kept separate so a test can drive it with a fake client. */

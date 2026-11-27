@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { checkToolPermission } from "../permissions/permissionChecker.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
+
 const runAgentTurn = vi.fn();
+const teammateIdle = vi.hoisted(() => vi.fn());
+const createWorktree = vi.hoisted(() =>
+  vi.fn(async () => "/tmp/subagent-worktree"),
+);
+const cleanupWorktree = vi.hoisted(() =>
+  vi.fn(async (_worktree: string) => undefined),
+);
 vi.mock("../session/controller.js", () => ({
   runAgentTurn: (...args: unknown[]) => runAgentTurn(...args),
 }));
@@ -8,6 +18,7 @@ vi.mock("../session/controller.js", () => ({
 vi.mock("../hooks/fireHook.js", () => ({
   fireSubagentStart: vi.fn().mockResolvedValue(undefined),
   fireSubagentStop: vi.fn().mockResolvedValue(undefined),
+  fireTeammateIdle: (...args: unknown[]) => teammateIdle(...args),
 }));
 
 const getCurrentTeamRunMember = vi.hoisted(() => vi.fn());
@@ -17,7 +28,7 @@ const saveSubagentSession = vi.hoisted(() =>
   vi.fn(() => ({ sessionId: "member-session" })),
 );
 const updateSubagentSession = vi.hoisted(() =>
-  vi.fn((options: { sessionId: string }) => ({
+  vi.fn((options: { sessionId: string }, _history?: unknown) => ({
     sessionId: options.sessionId,
   })),
 );
@@ -42,6 +53,25 @@ vi.mock("../utils/cli.js", () => ({
 
 vi.mock("../utils/logger.js", () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}));
+vi.mock("./worktree.js", () => ({
+  createSubagentWorktree: () => createWorktree(),
+  cleanupSubagentWorktree: (worktree: string) => cleanupWorktree(worktree),
+}));
+vi.mock("../utils/loadMarkdownSkills.js", () => ({
+  loadMarkdownSkills: vi.fn(async () => ({
+    skills: [
+      {
+        name: "alpha",
+        description: "Alpha procedure",
+        content: "Always run the alpha checks.",
+        path: ".tnt/skills/alpha/SKILL.md",
+        files: [],
+        enabled: true,
+      },
+    ],
+    errors: [],
+  })),
 }));
 
 vi.mock("../services/index.js", () => ({
@@ -75,6 +105,10 @@ type DepthCall = {
 
 beforeEach(() => {
   runAgentTurn.mockReset();
+  teammateIdle.mockReset();
+  teammateIdle.mockResolvedValue({ blocked: false, results: [] });
+  createWorktree.mockClear();
+  cleanupWorktree.mockClear();
   getCurrentTeamRunMember.mockReset();
   startTeamMemberRun.mockReset();
   finishTeamMemberRun.mockReset();
@@ -177,6 +211,112 @@ describe("a summoned lead dispatching a member", () => {
 
     expect(startTeamMemberRun).not.toHaveBeenCalled();
     expect(finishTeamMemberRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("markdown agent runtime configuration", () => {
+  it("applies maxTurns, permissionMode, tools and preloaded skills", async () => {
+    runAgentTurn.mockResolvedValue("done");
+
+    await executeSubAgent({
+      agent: state("configured"),
+      prompt: "do the work",
+      parentSessionId: "root",
+      abortController: new AbortController(),
+      maxTurns: 2,
+      permissionMode: "plan",
+      allowedTools: ["Read"],
+      skills: ["alpha"],
+    });
+
+    const options = runAgentTurn.mock.calls[0][0];
+    expect(options.turnBudgetLimits).toEqual({ maxSteps: 2 });
+    expect(options.runOverrides.systemMessage).toContain(
+      "Always run the alpha checks.",
+    );
+    expect(
+      checkToolPermission(
+        { name: "Write", arguments: {} },
+        options.runOverrides.permissions,
+      ).permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission(
+        { name: "Read", arguments: {} },
+        options.runOverrides.permissions,
+      ).permission,
+    ).toBe("allow");
+    expect(options.runOverrides.permissions.policies).toContainEqual({
+      tool: "*",
+      permission: "exclude",
+    });
+  });
+});
+
+describe("worktree isolation", () => {
+  it("runs the child in its worktree and cleans it up", async () => {
+    runAgentTurn.mockImplementation(async () => {
+      expect(currentWorkspaceRoot()).toBe("/tmp/subagent-worktree");
+      return "done";
+    });
+
+    await executeSubAgent({
+      agent: state("isolated"),
+      prompt: "do the work",
+      parentSessionId: "root",
+      abortController: new AbortController(),
+      isolation: "worktree",
+    });
+
+    expect(createWorktree).toHaveBeenCalledTimes(1);
+    expect(cleanupWorktree).toHaveBeenCalledWith("/tmp/subagent-worktree");
+  });
+});
+
+describe("TeammateIdle continuation", () => {
+  it("resumes the same member with hook feedback before completing", async () => {
+    getCurrentTeamRunMember.mockImplementation((name: string) =>
+      name === "implementer" ? { runId: "run-1" } : undefined,
+    );
+    const reports = ["first report", "fixed report"];
+    runAgentTurn.mockImplementation(async ({ chatHistory }: any) => {
+      const report = reports.shift() ?? "done";
+      chatHistory.push({
+        message: { role: "assistant", content: report },
+        contextItems: [],
+      });
+      return report;
+    });
+    teammateIdle.mockResolvedValueOnce({
+      blocked: true,
+      blockReason: "Add the missing tests.",
+      results: [],
+    });
+
+    const result = await executeSubAgent({
+      agent: state("implementer"),
+      prompt: "do the work",
+      parentSessionId: "root",
+      abortController: new AbortController(),
+    });
+
+    expect(result.success).toBe(true);
+    expect(runAgentTurn).toHaveBeenCalledTimes(2);
+    expect(runAgentTurn.mock.calls[1][0].chatHistory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.objectContaining({
+            content: expect.stringContaining("Add the missing tests."),
+          }),
+        }),
+      ]),
+    );
+    expect(finishTeamMemberRun).toHaveBeenCalledTimes(1);
+    expect(finishTeamMemberRun).toHaveBeenCalledWith(
+      "run-1",
+      "implementer",
+      expect.objectContaining({ success: true, report: "fixed report" }),
+    );
   });
 });
 

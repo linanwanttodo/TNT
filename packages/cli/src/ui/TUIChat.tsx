@@ -212,6 +212,7 @@ const TUIChat: React.FC<TUIChatProps> = ({
     onShowThemeSelector: () => navigateTo("theme"),
     onShowSessionSelector: () => navigateTo("session"),
     onShowSubagentsSelector: () => navigateTo("subagents"),
+    onShowTeamTasksSelector: () => navigateTo("teamTasks"),
     onLoadSession: (id: string) => loadSessionRef.current(id),
     onShowJobsSelector: () => navigateTo("jobs"),
     onShowExportSelector: () => navigateTo("export"),

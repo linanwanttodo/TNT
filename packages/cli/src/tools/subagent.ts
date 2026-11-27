@@ -8,21 +8,29 @@ import { ModelService } from "../services/ModelService.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
 import { ModelServiceState, SERVICE_NAMES } from "../services/types.js";
 import {
+  getCurrentTeamRunId,
+  getCurrentTeamRunMember,
   getSessionActiveTeam,
   getSessionTeamModelOverride,
   getSessionTeamModelOverrides,
+  getTeamBriefs,
 } from "../session/index.js";
 import {
   getSubagentPreference,
   isSubagentEnabled,
   subagentStateKey,
 } from "../subagent/agentState.js";
+import {
+  dispatchSubAgent,
+  resumeSubagentRun,
+} from "../subagent/asyncExecutor.js";
 import { composeSubagentBrief } from "../subagent/brief.js";
 import { builtInAgentByName } from "../subagent/builtInAgents.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
   generateSubagentToolDescription,
   resolveDispatchableAgent,
+  type DispatchableAgent,
   getAgentNames as getSubagentNames,
 } from "../subagent/get-agents.js";
 import {
@@ -39,8 +47,9 @@ import {
 } from "../subagent/report.js";
 import { loadTeams, type TeamDefinition } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
-import { Tool } from "./types.js";
+import { Tool, ToolRunContext } from "./types.js";
 
 /**
  * Agents contributed by installed plugins. Failures are swallowed because a
@@ -157,8 +166,28 @@ export function resolveAgentState(
 function getActiveTeam() {
   const activeTeamName = getSessionActiveTeam();
   return activeTeamName
-    ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
+    ? loadTeams(currentWorkspaceRoot()).find(
+        (team) => team.name === activeTeamName,
+      )
     : undefined;
+}
+
+function isolationFor(
+  args: Record<string, unknown>,
+  dispatchable?: DispatchableAgent | null,
+): "worktree" | undefined {
+  return args.isolation === "worktree" ? "worktree" : dispatchable?.isolation;
+}
+
+function shouldDispatchInBackground(
+  args: Record<string, unknown>,
+  dispatchable?: DispatchableAgent | null,
+): boolean {
+  return (
+    args.run_in_background === true ||
+    dispatchable?.background === true ||
+    (args.run_in_background !== false && !getCurrentTeamRunId())
+  );
 }
 
 export const subagentTool = async (): Promise<Tool> => {
@@ -207,8 +236,8 @@ export const subagentTool = async (): Promise<Tool> => {
       };
     },
 
-    run: async (args: any, context?: { toolCallId: string }) => {
-      const { description, files, prompt, subagent_name } = args;
+    run: async (args: any, context?: ToolRunContext) => {
+      const { description, files, prompt, subagent_name, session_id } = args;
 
       logger.debug("subagent args", { args, context });
 
@@ -231,10 +260,25 @@ export const subagentTool = async (): Promise<Tool> => {
         modelServiceState,
         getActiveTeam(),
       );
+      const runtimeConfig = {
+        maxTurns: dispatchable?.maxTurns,
+        allowedTools: dispatchable?.allowedTools,
+        permissionMode: dispatchable?.permissionMode,
+        skills: dispatchable?.skills,
+        isolation: isolationFor(args, dispatchable),
+      };
+      const teamRunId = getCurrentTeamRunMember(subagent_name)?.runId;
+      const teamBriefs = teamRunId ? getTeamBriefs(teamRunId) : [];
+      const teamContext = teamBriefs.length
+        ? `\n\nTeam briefs available at dispatch:\n${teamBriefs
+            .map((brief) => `- ${brief.from} → ${brief.to}: ${brief.content}`)
+            .join("\n")}`
+        : "";
+      const dispatchPrompt = `${typeof prompt === "string" ? prompt : ""}${teamContext}`;
       const brief = composeSubagentBrief({
         memberName: subagent_name,
         description: typeof description === "string" ? description : undefined,
-        prompt: typeof prompt === "string" ? prompt : "",
+        prompt: dispatchPrompt,
         restriction: dispatchable?.restriction,
         deniedTools: dispatchable?.deniedTools,
         files: Array.isArray(files)
@@ -247,25 +291,73 @@ export const subagentTool = async (): Promise<Tool> => {
         prompt: brief.prompt,
       });
 
+      const onOutputUpdate = context?.toolCallId
+        ? (output: string) => {
+            try {
+              chatHistoryService.addToolResult(
+                context.toolCallId,
+                output,
+                "calling",
+              );
+            } catch {
+              // Ignore errors during streaming updates
+            }
+          }
+        : undefined;
+
+      if (typeof session_id === "string" && session_id.trim()) {
+        const resumed = await resumeSubagentRun(
+          session_id.trim(),
+          brief.prompt,
+          {
+            agent,
+            parentSessionId,
+            teamRunId,
+            ...runtimeConfig,
+          },
+        );
+        return resumed
+          ? `Subagent session resumed.\nrun_id: ${resumed.runId}\nsession_id: ${resumed.sessionId}\nstatus: ${resumed.status}`
+          : `Could not resume child session ${session_id}.`;
+      }
+
+      const background = shouldDispatchInBackground(args, dispatchable);
+      if (background) {
+        const abortController = new AbortController();
+        const signal = context?.signal;
+        if (signal?.aborted) {
+          abortController.abort();
+        } else if (signal) {
+          signal.addEventListener("abort", () => abortController.abort(), {
+            once: true,
+          });
+        }
+        const dispatched = await dispatchSubAgent({
+          agent,
+          prompt: brief.prompt,
+          parentSessionId,
+          abortController,
+          onOutputUpdate,
+          teamRunId,
+          ...runtimeConfig,
+        });
+        return [
+          "Subagent dispatched in the background.",
+          `run_id: ${dispatched.runId}`,
+          `session_id: ${dispatched.sessionId}`,
+          `status: ${dispatched.status}`,
+          "Use TaskOutput to read the report, SendMessage to steer or resume it, and TaskStop to stop it.",
+        ].join("\n");
+      }
+
       // Execute subagent with output streaming
       const result = await executeSubAgent({
         agent,
         prompt: brief.prompt,
         parentSessionId,
         abortController: new AbortController(),
-        onOutputUpdate: context?.toolCallId
-          ? (output: string) => {
-              try {
-                chatHistoryService.addToolResult(
-                  context.toolCallId,
-                  output,
-                  "calling",
-                );
-              } catch {
-                // Ignore errors during streaming updates
-              }
-            }
-          : undefined,
+        onOutputUpdate,
+        ...runtimeConfig,
       });
 
       logger.debug("subagent result", { result });
@@ -330,7 +422,7 @@ export const listSubagentsTool = async (): Promise<Tool> => {
       }
 
       const activeTeamName = getSessionActiveTeam();
-      const teams = loadTeams(process.cwd());
+      const teams = loadTeams(currentWorkspaceRoot());
       const activeTeam = activeTeamName
         ? teams.find((team) => team.name === activeTeamName)
         : undefined;

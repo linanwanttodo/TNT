@@ -18,7 +18,8 @@ async function archive(entries: string[]): Promise<string> {
   // can still be flushing when afterEach removes the temp root, which shows up
   // as an unhandled Z_STREAM_ERROR on a loaded CI runner.
   const file = path.join(root, "archive.tar");
-  await tar.c({ file, cwd: path.join(root, "source") }, entries);
+  // The async pack can emit EOF twice while resolving hard-link entries.
+  await tar.c({ file, cwd: path.join(root, "source"), sync: true }, entries);
   return file;
 }
 

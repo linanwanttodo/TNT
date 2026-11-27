@@ -1,9 +1,16 @@
 import fs from "node:fs";
 import path from "path";
+import { fileURLToPath } from "node:url";
 
 import Parser, { Language } from "web-tree-sitter";
 import { FileSymbolMap, IDE, SymbolWithRange } from "..";
 import { getUriFileExtension } from "./uri";
+
+function moduleDir(): string {
+  return typeof import.meta.url === "string"
+    ? path.dirname(fileURLToPath(import.meta.url))
+    : __dirname;
+}
 
 export enum LanguageName {
   CPP = "cpp",
@@ -192,7 +199,7 @@ export async function getQueryForFile(
 
 function resolveQueryPath(queryPath: string): string {
   const candidates = [
-    path.join(__dirname, "..", "indexing", "tree-sitter-queries", queryPath),
+    path.join(moduleDir(), "..", "indexing", "tree-sitter-queries", queryPath),
     path.join(
       process.cwd(),
       "core",
@@ -201,7 +208,7 @@ function resolveQueryPath(queryPath: string): string {
       queryPath,
     ),
     path.join(process.cwd(), "indexing", "tree-sitter-queries", queryPath),
-    path.join(__dirname, "..", "tree-sitter", queryPath),
+    path.join(moduleDir(), "..", "tree-sitter", queryPath),
   ];
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
@@ -241,16 +248,16 @@ async function loadLanguageForFileExt(
 function resolveGrammarDir(): string | undefined {
   const candidates = [
     process.env.TNT_TREE_SITTER_WASMS_DIR,
-    path.join(__dirname, "tree-sitter-wasms"),
+    path.join(moduleDir(), "tree-sitter-wasms"),
     path.join(
-      __dirname,
+      moduleDir(),
       "..",
       "..",
       "node_modules",
       "tree-sitter-wasms",
       "out",
     ),
-    path.join(__dirname, "..", "node_modules", "tree-sitter-wasms", "out"),
+    path.join(moduleDir(), "..", "node_modules", "tree-sitter-wasms", "out"),
     path.join(process.cwd(), "node_modules", "tree-sitter-wasms", "out"),
   ].filter((candidate): candidate is string => Boolean(candidate));
   for (const candidate of candidates) {
@@ -266,6 +273,7 @@ const GET_SYMBOLS_FOR_NODE_TYPES: Parser.SyntaxNode["type"][] = [
   "class_declaration",
   "class_definition",
   "function_item", // function name = first "identifier" child
+  "function_declaration",
   "function_definition",
   "method_declaration", // method name = first "identifier" child
   "method_definition",
@@ -306,14 +314,17 @@ export async function getSymbolsForFile(
       // Empirically, the actual name is the last identifier in the node
       // Especially with languages where return type is declared before the name
       // TODO use findLast in newer version of node target
-      let identifier: Parser.SyntaxNode | undefined = undefined;
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        if (
-          node.children[i].type === "identifier" ||
-          node.children[i].type === "property_identifier"
-        ) {
-          identifier = node.children[i];
-          break;
+      let identifier: Parser.SyntaxNode | undefined =
+        node.childForFieldName("name") ?? undefined;
+      if (!identifier) {
+        for (let i = node.children.length - 1; i >= 0; i--) {
+          if (
+            node.children[i].type === "identifier" ||
+            node.children[i].type === "property_identifier"
+          ) {
+            identifier = node.children[i];
+            break;
+          }
         }
       }
 

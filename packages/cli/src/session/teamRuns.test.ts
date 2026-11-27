@@ -1,8 +1,16 @@
 import type { ChatHistoryItem } from "core/index.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { sessionStore } from "./store.js";
+
 import {
+  appendTeamBrief,
   beginTeamRun,
+  claimTeamTask,
+  completeTeamTask,
+  createTeamTask,
+  getTeamTask,
+  listTeamTasks,
   clearSessionTeamRuns,
   createSession,
   finishTeamMemberRun,
@@ -10,8 +18,10 @@ import {
   getCurrentSession,
   getCurrentTeamRunId,
   getSessionTeamRuns,
+  getTeamBriefs,
   loadSessionById,
   MAX_TEAM_RUNS,
+  runInTeamRunScope,
   startTeamMemberRun,
   updateSessionHistory,
 } from "./index.js";
@@ -272,6 +282,154 @@ describe("the team-run ledger", () => {
       status: "cancelled",
       subagentSessionId: "child-session",
     });
+  });
+
+  it("keeps concurrent team runs in their own async scope", async () => {
+    const first = beginTeamRun({
+      team: "dev",
+      goal: "first",
+      mode: "auto",
+      members: ["implementer"],
+    });
+    const second = beginTeamRun({
+      team: "dev",
+      goal: "second",
+      mode: "auto",
+      members: ["tester"],
+    });
+
+    await Promise.all([
+      runInTeamRunScope(first.runId, async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        expect(getCurrentTeamRunId()).toBe(first.runId);
+      }),
+      runInTeamRunScope(second.runId, async () => {
+        expect(getCurrentTeamRunId()).toBe(second.runId);
+      }),
+    ]);
+  });
+
+  it("keeps ledger writes on the owning session after a session switch", async () => {
+    const ownerSessionId = getCurrentSession().sessionId;
+    const run = beginTeamRun({
+      team: "dev",
+      goal: "ship",
+      mode: "parallel",
+      members: ["implementer"],
+    });
+
+    await runInTeamRunScope(run.runId, async () => {
+      createSession();
+      startTeamMemberRun(run.runId, "implementer", "cheap-model");
+      appendTeamBrief(run.runId, {
+        from: "implementer",
+        to: "team",
+        type: "sync",
+        content: "Still the original session.",
+      });
+    });
+
+    const owner = sessionStore.load(ownerSessionId)?.session;
+    expect(owner?.teamRuns?.[0].members[0].status).toBe("running");
+    expect(owner?.teamRuns?.[0].briefs?.[0].content).toBe(
+      "Still the original session.",
+    );
+    expect(getCurrentSession().teamRuns ?? []).toEqual([]);
+  });
+
+  it("persists short team briefs without storing full member transcripts", () => {
+    const run = beginTeamRun({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "parallel",
+      members: ["implementer", "tester"],
+    });
+    appendTeamBrief(run.runId, {
+      from: "implementer",
+      to: "tester",
+      type: "sync",
+      content: "API shape is ready; test the new endpoint.",
+    });
+
+    expect(getTeamBriefs(run.runId)).toEqual([
+      expect.objectContaining({
+        from: "implementer",
+        to: "tester",
+        type: "sync",
+        content: "API shape is ready; test the new endpoint.",
+      }),
+    ]);
+    const loaded = loadSessionById(getCurrentSession().sessionId);
+    expect(loaded?.teamRuns?.[0].briefs).toHaveLength(1);
+  });
+
+  it("coordinates shared tasks with dependencies and exclusive claims", () => {
+    const run = beginTeamRun({
+      team: "dev",
+      goal: "ship the feature",
+      mode: "parallel",
+      members: ["implementer", "tester"],
+    });
+    const first = createTeamTask(run.runId, {
+      subject: "Implement endpoint",
+      description: "Wire the route and tests.",
+    })!;
+    const second = createTeamTask(run.runId, {
+      subject: "Verify endpoint",
+      dependsOn: [first.taskId],
+    })!;
+
+    expect(listTeamTasks(run.runId)).toEqual([
+      expect.objectContaining({ taskId: first.taskId, blocked: false }),
+      expect.objectContaining({ taskId: second.taskId, blocked: true }),
+    ]);
+    expect(claimTeamTask(run.runId, second.taskId, "tester")).toBeUndefined();
+    expect(claimTeamTask(run.runId, first.taskId, "implementer")).toMatchObject(
+      {
+        status: "in_progress",
+        owner: "implementer",
+      },
+    );
+    expect(claimTeamTask(run.runId, first.taskId, "tester")).toBeUndefined();
+
+    completeTeamTask(run.runId, first.taskId, "implementer");
+
+    expect(getTeamTask(run.runId, second.taskId)).toMatchObject({
+      status: "pending",
+      blocked: false,
+    });
+    expect(claimTeamTask(run.runId, second.taskId, "tester")).toMatchObject({
+      status: "in_progress",
+      owner: "tester",
+    });
+    const persisted = loadSessionById(getCurrentSession().sessionId);
+    expect(persisted?.teamRuns?.[0].tasks).toEqual([
+      expect.objectContaining({ taskId: first.taskId, status: "completed" }),
+      expect.objectContaining({
+        taskId: second.taskId,
+        status: "in_progress",
+        owner: "tester",
+      }),
+    ]);
+  });
+
+  it("rejects unknown task dependencies and foreign team runs", () => {
+    const run = beginTeamRun({
+      team: "dev",
+      goal: "ship",
+      mode: "auto",
+      members: ["implementer"],
+    });
+
+    expect(
+      createTeamTask(run.runId, {
+        subject: "Impossible task",
+        dependsOn: ["missing-task"],
+      }),
+    ).toBeUndefined();
+    expect(
+      createTeamTask("foreign-team", { subject: "Injected" }),
+    ).toBeUndefined();
   });
 
   it("does not attribute a run that has already been settled", () => {

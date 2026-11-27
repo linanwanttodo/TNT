@@ -87,7 +87,7 @@ export class HookService extends BaseService<HookServiceState> {
       const result = await runHooks(
         this.currentState.config,
         input,
-        this.cwd,
+        input.cwd || this.cwd,
         this.currentState.onceKeys,
       );
       return result;

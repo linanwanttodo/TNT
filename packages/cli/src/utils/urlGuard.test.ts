@@ -131,6 +131,38 @@ describe("assertPublicHttpUrl", () => {
     );
   });
 
+  it("uses proxy DNS for a fixed built-in host without allowing arbitrary hosts", async () => {
+    lookupMock.mockResolvedValue([{ address: "198.18.0.85", family: 4 }]);
+    vi.stubEnv("NODE_USE_ENV_PROXY", "1");
+    vi.stubEnv("HTTPS_PROXY", "http://127.0.0.1:7890");
+    vi.stubEnv("NO_PROXY", "");
+
+    await expect(
+      assertPublicHttpUrl("https://mcp.exa.ai/mcp", {
+        allowedHosts: ["mcp.exa.ai"],
+        resolveWithProxy: true,
+      }),
+    ).resolves.toBeInstanceOf(URL);
+    await expect(assertPublicHttpUrl("https://evil.example/x")).rejects.toThrow(
+      /private or reserved/,
+    );
+    expect(lookupMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed when proxy DNS returns a private address", async () => {
+    lookupMock.mockResolvedValue([{ address: "10.0.0.8", family: 4 }]);
+    vi.stubEnv("NODE_USE_ENV_PROXY", "1");
+    vi.stubEnv("HTTPS_PROXY", "http://127.0.0.1:7890");
+    vi.stubEnv("NO_PROXY", "");
+
+    await expect(
+      assertPublicHttpUrl("https://mcp.exa.ai/mcp", {
+        allowedHosts: ["mcp.exa.ai"],
+        resolveWithProxy: true,
+      }),
+    ).rejects.toThrow(/private or reserved/);
+  });
+
   it("lets an explicitly allowed host through, but never the protocol check", async () => {
     await expect(
       assertPublicHttpUrl("http://127.0.0.1:9200/x", {
@@ -191,6 +223,25 @@ describe("fetchPublicUrl", () => {
       (secondCall[1].headers as Record<string, string>).Authorization,
     ).toBe("Bearer t");
     expect(secondCall[1].redirect).toBe("manual");
+  });
+
+  it("drops authorization when a redirect changes origin", async () => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://93.184.216.35/next" },
+        }),
+      )
+      .mockResolvedValueOnce(new Response("arrived", { status: 200 }));
+
+    await fetchPublicUrl("https://93.184.216.34/first", {
+      headers: { Authorization: "Bearer secret" },
+    });
+
+    const headers = new Headers(fetchMock.mock.calls[1][1].headers);
+    expect(headers.has("authorization")).toBe(false);
   });
 
   it("gives up after five hops", async () => {

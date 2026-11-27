@@ -10,6 +10,7 @@ import {
   finishTeamRun,
   getSessionActiveTeam,
   MAX_TEAM_RUN_MEMBERS,
+  runInTeamRunScope,
 } from "../session/index.js";
 import { buildTeamWorkflowGraph } from "../session/teamWorkflow.js";
 import { TEAM_RUN_MAX_SUBAGENT_DEPTH } from "../subagent/depth.js";
@@ -24,6 +25,7 @@ import {
   type TeamDefinition,
   type TeamMember,
 } from "../team/loader.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { resolveAgentState } from "./subagent.js";
 import type { Tool } from "./types.js";
@@ -103,7 +105,7 @@ function resolveRoster(requested?: string): {
   team?: TeamDefinition;
   available: string[];
 } {
-  const teams = loadTeams(process.cwd());
+  const teams = loadTeams(currentWorkspaceRoot());
   const available = teams.map((team) => team.name);
   const name = requested?.trim() || getSessionActiveTeam();
   const team = name
@@ -293,29 +295,31 @@ export const summonTeamTool = async (): Promise<Tool> => {
       let result: Awaited<ReturnType<typeof executeSubAgent>>;
       let succeeded = false;
       try {
-        result = await executeSubAgent({
-          agent,
-          prompt: composeLeadBrief(activeTeam, goal, {
-            mode,
-            members: selection.members,
-          }),
-          parentSessionId,
-          abortController: new AbortController(),
-          maxDelegationDepth: TEAM_RUN_MAX_SUBAGENT_DEPTH,
-          onOutputUpdate: context?.toolCallId
-            ? (output: string) => {
-                try {
-                  services.chatHistory.addToolResult(
-                    context.toolCallId,
-                    output,
-                    "calling",
-                  );
-                } catch {
-                  // Ignore errors during streaming updates
+        result = await runInTeamRunScope(run.runId, () =>
+          executeSubAgent({
+            agent,
+            prompt: composeLeadBrief(activeTeam, goal, {
+              mode,
+              members: selection.members,
+            }),
+            parentSessionId,
+            abortController: new AbortController(),
+            maxDelegationDepth: TEAM_RUN_MAX_SUBAGENT_DEPTH,
+            onOutputUpdate: context?.toolCallId
+              ? (output: string) => {
+                  try {
+                    services.chatHistory.addToolResult(
+                      context.toolCallId,
+                      output,
+                      "calling",
+                    );
+                  } catch {
+                    // Ignore errors during streaming updates
+                  }
                 }
-              }
-            : undefined,
-        });
+              : undefined,
+          }),
+        );
         succeeded = result.success;
       } catch (error: any) {
         return failure(

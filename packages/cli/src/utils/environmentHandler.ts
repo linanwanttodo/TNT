@@ -7,6 +7,8 @@ import chalk from "chalk";
 
 const execFileAsync = promisify(execFile);
 
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
+
 import { formatError } from "./formatError.js";
 import { logger } from "./logger.js";
 
@@ -41,7 +43,7 @@ function shellInvocationFor(script: string): {
 function findEnvironmentFile(): EnvironmentConfig | null {
   for (const searchPath of ENVIRONMENT_SEARCH_PATHS) {
     const environmentPath = path.join(
-      process.cwd(),
+      currentWorkspaceRoot(),
       searchPath,
       ENVIRONMENT_FILE_NAME,
     );
@@ -87,7 +89,7 @@ export async function runEnvironmentInstall(): Promise<void> {
   try {
     const { file, args } = shellInvocationFor(installScript);
     await execFileAsync(file, args, {
-      cwd: process.cwd(),
+      cwd: currentWorkspaceRoot(),
       encoding: "utf-8",
     });
 

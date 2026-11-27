@@ -127,11 +127,11 @@ describe("spec/tui.md agrees with the status bar and mode badge", () => {
     );
     expect(/click to expand/.test(flat)).toBe(/click to expand/.test(group));
     expect(/folds itself/.test(flat)).toBe(/setOverride\(false\)/.test(group));
-    // The state machine and the result gutter are named after the code that
-    // draws them: the status dot, the 600 ms blink and the `⎿` gutter token.
+    // The state machine and indented result area are named after the code that
+    // draws them: the status dot and the 600 ms blink.
     expect(/status dot/.test(flat)).toBe(/toolDotStyle/.test(group));
     expect(/600 ms while running/.test(flat)).toBe(/useBlink/.test(group));
-    expect(/gutter of two spaces, `⎿` and one space/.test(flat)).toBe(
+    expect(/indented four spaces/.test(flat)).toBe(
       /<ToolResultBlock/.test(group),
     );
   });

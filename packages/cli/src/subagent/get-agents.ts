@@ -1,3 +1,4 @@
+import { PERMISSION_MODES, type PermissionMode } from "../permissions/types.js";
 import type { PluginAgents } from "../plugins/loader.js";
 import { loadAllPlugins } from "../plugins/loader.js";
 import { ModelService } from "../services/ModelService.js";
@@ -34,6 +35,12 @@ export interface DispatchableAgent {
   systemMessage: string;
   restriction?: "readonly" | "no-writes";
   deniedTools?: string[];
+  allowedTools?: string[];
+  permissionMode?: PermissionMode;
+  maxTurns?: number;
+  skills?: string[];
+  background?: boolean;
+  isolation?: "worktree";
   /**
    * The model the roster assigned this member, still unresolved: dispatch
    * resolves it against the configured models and falls back to the session
@@ -101,6 +108,21 @@ export function resolveDispatchableAgent(
       deniedTools: markdownAgent.disallowedTools
         ? [...markdownAgent.disallowedTools]
         : undefined,
+      allowedTools: markdownAgent.tools ? [...markdownAgent.tools] : undefined,
+      permissionMode: PERMISSION_MODES.includes(
+        markdownAgent.permissionMode as PermissionMode,
+      )
+        ? (markdownAgent.permissionMode as PermissionMode)
+        : undefined,
+      maxTurns:
+        markdownAgent.maxTurns &&
+        Number.isInteger(markdownAgent.maxTurns) &&
+        markdownAgent.maxTurns > 0
+          ? markdownAgent.maxTurns
+          : undefined,
+      skills: markdownAgent.skills ? [...markdownAgent.skills] : undefined,
+      background: markdownAgent.background,
+      isolation: markdownAgent.isolation,
       model: markdownAgent.model,
       kind: "markdown",
     };

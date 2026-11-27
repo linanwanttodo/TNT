@@ -11,6 +11,7 @@ import type {
 import { policySearchIgnorePatterns } from "../permissions/searchIgnore.js";
 import { isWithinWorkspace } from "../permissions/workspacePath.js";
 import { parseEnvNumber } from "../utils/truncateOutput.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { checkIfRipgrepIsInstalled } from "./searchCode.js";
 import { Tool, ToolRunContext } from "./types.js";
@@ -229,8 +230,10 @@ function parseScanRequest(args: AstSearchArgs): ScanRequest | string {
     return "AstSearch takes pattern or kind, not both.";
   }
 
-  const rootArg = args?.path?.trim() ? args.path.trim() : process.cwd();
-  const root = path.resolve(rootArg);
+  const rootArg = args?.path?.trim()
+    ? args.path.trim()
+    : currentWorkspaceRoot();
+  const root = path.resolve(currentWorkspaceRoot(), rootArg);
   if (!fs.existsSync(root)) {
     return `Path does not exist: ${rootArg}`;
   }
@@ -498,7 +501,9 @@ export const astSearchTool: Tool = {
     }
     const named = parsedArgs.path;
     const target =
-      typeof named === "string" && named.trim() !== "" ? named : process.cwd();
+      typeof named === "string" && named.trim() !== ""
+        ? named
+        : currentWorkspaceRoot();
     return isWithinWorkspace(target) ? basePolicy : "allowedWithPermission";
   },
   preprocess: async (args) => {

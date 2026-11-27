@@ -1,8 +1,11 @@
 import {
   ASSIGN_TEAM_MODEL_TOOL_META,
   LIST_SUBAGENTS_TOOL_META,
+  SEND_MESSAGE_TOOL_META,
   SUBAGENT_TOOL_META,
   SUMMON_TEAM_TOOL_META,
+  TASK_OUTPUT_TOOL_META,
+  TASK_STOP_TOOL_META,
 } from "../subagent/index.js";
 
 import { applyPatchTool } from "./applyPatch.js";
@@ -37,6 +40,12 @@ import { searchCodeTool } from "./searchCode.js";
 import { toolSearchTool } from "./selection/search.js";
 import { SKILLS_TOOL_META } from "./skills.js";
 import { statusTool } from "./status.js";
+import {
+  TASK_CREATE_TOOL_META,
+  TASK_GET_TOOL_META,
+  TASK_LIST_TOOL_META,
+  TASK_UPDATE_TOOL_META,
+} from "./teamTaskMeta.js";
 import { todoTool } from "./todo.js";
 import { uploadArtifactTool } from "./uploadArtifact.js";
 import { viewDiffTool } from "./viewDiff.js";
@@ -83,6 +92,13 @@ export const ALL_BUILT_IN_TOOLS = [
   LIST_SUBAGENTS_TOOL_META,
   ASSIGN_TEAM_MODEL_TOOL_META,
   SUMMON_TEAM_TOOL_META,
+  TASK_OUTPUT_TOOL_META,
+  TASK_STOP_TOOL_META,
+  TASK_CREATE_TOOL_META,
+  TASK_GET_TOOL_META,
+  TASK_LIST_TOOL_META,
+  TASK_UPDATE_TOOL_META,
+  SEND_MESSAGE_TOOL_META,
   SKILLS_TOOL_META,
   uploadArtifactTool,
   viewDiffTool,

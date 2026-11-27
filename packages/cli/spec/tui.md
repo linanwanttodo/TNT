@@ -71,14 +71,16 @@ message, as a grey spinner with a `Thinking…` label and the elapsed time
 ## Tool calls
 
 Each tool call is a row beginning with a status dot in a fixed two-column
-gutter: dim while queued, blinking to a space every 600 ms while running, green
-after a clean exit, red after a failure and dim when cancelled. The tool name is
-bold in the accent colour, followed by its subject in the secondary colour and a
-short `·` summary of what the call produced. Output hangs below the call behind
-a gutter of two spaces, `⎿` and one space; it is folded to its last four rows
-with the number of hidden rows above and a `click to expand` hint; clicking the
-panel shows the whole output and the next click folds it again. A finished call
-folds itself, so the transcript settles without the reader clicking anything
+gutter: dim while queued, alternating gray and white every 600 ms while running,
+green after a clean exit, red after a failure and dim when cancelled. The tool
+name is bold in the accent colour, followed by its subject in the secondary
+colour and a short `·` summary of what the call produced. Output is indented
+four spaces below the call with no decorative glyph; a finished call folds its
+output, keeping an error tail visible, and clicking the panel shows a
+`click to expand` hint and opens it again. A finished call folds itself.
+Consecutive finished calls in one assistant step fold together regardless of
+tool name; the summary reports the call count and any failures, while queued and
+running calls stay visible. Expanding the group opens every member output
 (`src/ui/components/ToolGroupDisplay.tsx`). Shell calls read as `$ command`.
 
 ## Messages

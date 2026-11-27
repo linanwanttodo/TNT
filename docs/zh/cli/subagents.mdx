@@ -3,12 +3,9 @@ title: "子智能体"
 description: "把任务委派给运行在同一引擎上的子智能体。"
 ---
 
-子智能体在自己的会话中运行任务，同时父会话继续工作。它使用与父会话相同的引擎、
-模型和权限模式。
-
-<Info>
-在委派接口稳定之前，Subagent 工具由 `--beta-subagent-tool` 参数控制。
-</Info>
+子智能体在自己的持久化会话中运行任务，同时父会话继续工作。它使用与父会话相同的
+引擎和模型，权限则从父会话收窄。`Subagent` 默认立即返回 `run_id` 与 `session_id`；
+只有调用方需要先拿到最终报告时才传 `run_in_background: false`。
 
 ## 内置角色
 
@@ -42,8 +39,46 @@ CLI 自带九个角色。每个角色有自己的系统提示词和限制，默�
 /back
 ```
 
-返回父会话。委派会话的记录以只读方式打开：可以查看子会话，但修改发生在拥有该
-工作的会话中，因此两个智能体不能同时改写同一条对话。
+返回父会话。委派会话可以查看，父代理可用 `Subagent.session_id` 或
+`SendMessage` 继续同一个子会话。
+
+## 后台控制
+
+- `TaskOutput` 读取运行状态与最终报告。
+- `SendMessage` 向运行中的子代理发送 steer、续聊已完成的子代理，或让需要父代理
+  输入的子代理暂停。
+- `TaskStop` 只停止指定子代理，不停止父会话；它会保存取消结果，并发出与自然完成
+  相同的完成通知。
+
+## Markdown 智能体
+
+在 `.tnt/agents/<name>.md`、`.claude/agents/<name>.md` 或
+`~/.tnt/agents/<name>.md` 中定义智能体，按此顺序优先使用第一个同名文件。
+YAML frontmatter 可配置 `model`、`tools`、`disallowedTools`、`permissionMode`、
+`maxTurns`、`skills`、`background` 与 `isolation`，Markdown 正文是智能体的系统提示词。
+`maxTurns` 限制模型/工具轮数，`tools` 是允许列表，`skills` 会预加载到子会话上下文，
+`background: true` 让派发默认异步执行。
+
+在智能体上设置 `isolation: worktree`，或给 `Subagent` 传
+`isolation: "worktree"`，即可让文件、搜索、shell 和语言服务器工具在临时 detached
+git worktree 中运行。主 checkout 的未提交改动不会复制进去。运行结束（包括失败）时会删除
+worktree；它适合隔离检查或实验，不是把改动应用到主 checkout 的方式。续聊子会话时会创建
+新的隔离 worktree。
+
+## 专家团
+
+默认提供 `dev` 与 `sec`。`market` 是只读的股票/基金研究团队，包含组合管理、宏观、
+基本面、技术面、情绪、风险、执行计划与合规角色。它产出带来源的研究结论以及模拟
+交易或待审批草稿；不下单、不转移资金、不保存券商凭证，也不承诺收益。
+
+团队运行共享一份持久化任务列表。lead 和成员都能使用 `TaskCreate`、`TaskGet`、
+`TaskList`、`TaskUpdate`，达到委派深度上限的成员也保留这些工具。任务可以依赖已有任务；
+被阻塞的任务不能领取，每个任务同时只有一个 owner。`TaskCreated`、`TaskCompleted`
+与 `TeammateIdle` 钩子把这些生命周期节点暴露给项目自动化。`TeammateIdle` 钩子阻止完成时，
+同一个成员会带着反馈继续工作，成员账本只结算一次。
+
+运行 `/team tasks` 可打开交互式任务列表：Up/Down 导航，Enter 查看详情，Left/Right
+选择成员，Space 领取，`c` 完成，`r` 刷新，Esc 返回。
 
 ## 缓存行为
 

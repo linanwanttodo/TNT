@@ -11,7 +11,8 @@ const RESULT_GUTTER = claudeGlyphs().resultGutter;
  * has already reported once: it still appears in the tree, but its tool and
  * token counters are deliberately hidden the way the reference does.
  */
-export type SubagentTreeStatus = "running" | "done" | "failed" | "background";
+export type SubagentTreeStatus =
+  "running" | "waiting_input" | "done" | "failed" | "cancelled" | "background";
 
 export interface SubagentTreeEntry {
   id: string;
@@ -74,7 +75,11 @@ export function selectSubagentTreeEntries(
   const collapsed: SubagentTreeEntry[] = [];
 
   for (const entry of entries) {
-    if (entry.status === "running" || entry.status === "background") {
+    if (
+      entry.status === "running" ||
+      entry.status === "waiting_input" ||
+      entry.status === "background"
+    ) {
       visible.push(entry);
       continue;
     }

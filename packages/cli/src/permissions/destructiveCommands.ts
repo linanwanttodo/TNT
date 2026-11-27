@@ -149,7 +149,7 @@ function isDestructiveRm(args: readonly string[]): boolean {
 
   return targets.some((target) => {
     if (/^\$[{A-Za-z_]/.test(target)) return true;
-    const resolved = path.resolve(process.cwd(), expandHome(target));
+    const resolved = path.resolve(workspaceRoot(), expandHome(target));
     return resolved === workspaceRoot() || !isWithinWorkspace(resolved);
   });
 }

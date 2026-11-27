@@ -7,6 +7,7 @@ import {
   isWithinWorkspace,
   resolveWithinWorkspace,
 } from "../permissions/workspacePath.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import type {
   ComputerBackend,
@@ -257,7 +258,7 @@ function saveScreenshot(buffer: Buffer, filepath?: string): string | undefined {
   }
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, buffer);
-  return path.relative(process.cwd(), absolute) || absolute;
+  return path.relative(currentWorkspaceRoot(), absolute) || absolute;
 }
 
 async function runAction(args: ComputerArgs): Promise<ToolRunResult> {

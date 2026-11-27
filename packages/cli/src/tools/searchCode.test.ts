@@ -139,7 +139,7 @@ describe("searchCodeTool", () => {
         "*.ts",
         "--",
         pattern,
-        ".",
+        process.cwd(),
       ]);
     });
 

@@ -1,1 +1,3 @@
 ../../packages/zcode-ui/**
+.mimosa/
+build-meta.json

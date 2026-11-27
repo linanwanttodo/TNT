@@ -56,7 +56,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await getLspManager().dispose();
+  await getLspManager(workDir).dispose();
   if (previousOverride === undefined) {
     delete process.env.TNT_PLUGINS_DIR;
   } else {
@@ -83,8 +83,8 @@ describe("language server shutdown", () => {
   it("registers its exit cleanup once, however often it is asked", () => {
     const before = process.listenerCount("exit");
 
-    getLspManager();
-    getLspManager();
+    getLspManager(workDir);
+    getLspManager(workDir);
 
     expect(process.listenerCount("exit") - before).toBe(1);
   });
@@ -92,23 +92,23 @@ describe("language server shutdown", () => {
   it("kills the server process when the session is over", async () => {
     const pidFile = path.join(workDir, "server.pid");
     writePlugin(pidFile);
-    await getLspManager().ensureStarted(workDir);
+    await getLspManager(workDir).ensureStarted(workDir);
     await waitFor(() => fs.existsSync(pidFile));
     const pid = Number(fs.readFileSync(pidFile, "utf-8"));
     expect(Number.isInteger(pid)).toBe(true);
     expect(isAlive(pid)).toBe(true);
 
-    getLspManager().stopAllNow();
+    getLspManager(workDir).stopAllNow();
     await waitFor(() => !isAlive(pid));
 
     expect(isAlive(pid)).toBe(false);
-    expect(getLspManager().runningServers()).toEqual([]);
+    expect(getLspManager(workDir).runningServers()).toEqual([]);
   });
 
   it("leaves nothing running to answer later requests", async () => {
     const pidFile = path.join(workDir, "server.pid");
     writePlugin(pidFile);
-    await getLspManager().ensureStarted(workDir);
+    await getLspManager(workDir).ensureStarted(workDir);
     await waitFor(() => fs.existsSync(pidFile));
     // The pid is read before the stop, and the case waits on it: the server was
     // started with `workDir` as its cwd, and on Windows that directory stays
@@ -116,9 +116,11 @@ describe("language server shutdown", () => {
     // spends its whole retry budget on a handle nobody intends to release.
     const pid = Number(fs.readFileSync(pidFile, "utf-8"));
 
-    getLspManager().stopAllNow();
+    getLspManager(workDir).stopAllNow();
     await waitFor(() => !isAlive(pid));
 
-    expect(await getLspManager().collectDiagnostics(workDir)).toEqual([]);
+    expect(await getLspManager(workDir).collectDiagnostics(workDir)).toEqual(
+      [],
+    );
   });
 });

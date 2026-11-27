@@ -1,6 +1,7 @@
 import { t } from "../i18n/index.js";
 import { SERVICE_NAMES, serviceContainer } from "../services/index.js";
 import type { MCPServiceState, ModelServiceState } from "../services/types.js";
+import { getCurrentTeamRunId } from "../session/index.js";
 
 import { ALL_BUILT_IN_TOOLS } from "./allBuiltIns.js";
 import { applyPatchTool } from "./applyPatch.js";
@@ -39,7 +40,18 @@ import { skillsTool } from "./skills.js";
 import { sortToolsByName } from "./stableOrder.js";
 import { statusTool } from "./status.js";
 import { listSubagentsTool, subagentTool } from "./subagent.js";
+import {
+  sendMessageTool,
+  taskOutputTool,
+  taskStopTool,
+} from "./subagentControls.js";
 import { summonTeamTool } from "./team.js";
+import {
+  taskCreateTool,
+  taskGetTool,
+  taskListTool,
+  taskUpdateTool,
+} from "./teamTasks.js";
 import { todoTool } from "./todo.js";
 import { isBetaUploadArtifactToolEnabled } from "./toolsConfig.js";
 import type { Tool } from "./types.js";
@@ -172,11 +184,19 @@ export async function getAllAvailableTools(
   // a larger scale, and the main agent must be able to discover it before it
   // decides whether a task needs one expert, several, or the whole roster.
   // Hiding these until /team ran made the model report that no team existed.
+  // A child at the delegation-depth limit still needs to ask its parent for
+  // input, so messaging is not gated by canDelegate.
+  tools.push(sendMessageTool);
+  if (canDelegate || getCurrentTeamRunId()) {
+    tools.push(taskCreateTool, taskGetTool, taskListTool, taskUpdateTool);
+  }
+
   if (canDelegate) {
     tools.push(await subagentTool());
     tools.push(await listSubagentsTool());
     tools.push(await assignTeamModelTool());
     tools.push(await summonTeamTool());
+    tools.push(taskOutputTool, taskStopTool);
   }
 
   tools.push(await skillsTool());

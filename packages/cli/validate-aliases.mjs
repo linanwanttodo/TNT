@@ -105,10 +105,7 @@ function findLocalPackages(startPath, visited = new Set()) {
       };
 
       for (const [depName, depVersion] of Object.entries(allDeps)) {
-        if (
-          typeof depVersion !== "string" ||
-          !depVersion.startsWith("file:")
-        ) {
+        if (typeof depVersion !== "string" || !depVersion.startsWith("file:")) {
           continue;
         }
         // The vendored ZCode closure is a normal installed dependency: its

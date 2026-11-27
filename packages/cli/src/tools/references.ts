@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 
 import { getLspManager } from "../lsp/manager.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { describeLspUri } from "./lspLocations.js";
 import { Tool } from "./types.js";
@@ -61,13 +62,13 @@ Returns nothing when the project has no language server configured.`,
     ) {
       return "References needs a line and a character, both counting from 1.";
     }
-    const absolute = path.resolve(file_path);
+    const absolute = path.resolve(currentWorkspaceRoot(), file_path);
     if (!fs.existsSync(absolute)) {
       return `No such file: ${file_path}`;
     }
 
     const manager = getLspManager();
-    const running = await manager.ensureStarted(process.cwd());
+    const running = await manager.ensureStarted(currentWorkspaceRoot());
     if (running === 0) {
       return "No language server is configured. A plugin can declare one under lspServers in its manifest.";
     }

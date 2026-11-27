@@ -53,6 +53,7 @@ export function useSubagentTree(
     let counter = 0;
     let cancelled = false;
     const runningByType = new Map<string, string[]>();
+    const runningBySession = new Map<string, string>();
     const childIdsAtStart = new Map<string, Set<string>>();
     const claimedChildren = new Set<string>();
 
@@ -106,6 +107,7 @@ export function useSubagentTree(
     };
 
     runningByType.clear();
+    runningBySession.clear();
     childIdsAtStart.clear();
     claimedChildren.clear();
     setEntries([]);
@@ -129,6 +131,9 @@ export function useSubagentTree(
         const siblings = runningByType.get(event.agentName) ?? [];
         siblings.push(id);
         runningByType.set(event.agentName, siblings);
+        if (event.childSessionId) {
+          runningBySession.set(event.childSessionId, id);
+        }
         if (cancelled) {
           return;
         }
@@ -150,14 +155,23 @@ export function useSubagentTree(
           return;
         }
         const siblings = runningByType.get(event.agentName);
-        const id = siblings?.shift();
+        const id = event.childSessionId
+          ? runningBySession.get(event.childSessionId)
+          : siblings?.shift();
         if (!id) {
           return;
+        }
+        if (event.childSessionId) {
+          runningBySession.delete(event.childSessionId);
         }
         const knownChildren = childIdsAtStart.get(id) ?? new Set<string>();
         childIdsAtStart.delete(id);
         patch(id, {
-          status: event.success ? "done" : "failed",
+          status: event.cancelled
+            ? "cancelled"
+            : event.success
+              ? "done"
+              : "failed",
           finishedAt: event.timestamp,
           error: event.success
             ? undefined
@@ -171,6 +185,27 @@ export function useSubagentTree(
           }
           loadUsage(id, event.agentName, knownChildren);
         });
+        return;
+      }
+
+      if (
+        (event.type === "subagent.ping" || event.type === "subagent.steered") &&
+        matchesSession(event)
+      ) {
+        const siblings = runningByType.get(event.agentName);
+        const id = event.childSessionId
+          ? runningBySession.get(event.childSessionId)
+          : siblings?.at(-1);
+        if (id) {
+          patch(id, {
+            status:
+              event.type === "subagent.ping" ? "waiting_input" : "running",
+            lastToolInfo:
+              event.type === "subagent.ping"
+                ? `Waiting for parent: ${firstLine(event.content)}`
+                : `Steered: ${firstLine(event.content)}`,
+          });
+        }
         return;
       }
 

@@ -8,6 +8,7 @@
 
 import { services } from "../services/index.js";
 import { getCurrentSession, getSessionFilePath } from "../session/index.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import type {
   ConfigChangeInput,
@@ -25,6 +26,9 @@ import type {
   SubagentStartInput,
   SubagentStopInput,
   StopInput,
+  TaskCompletedInput,
+  TaskCreatedInput,
+  TeammateIdleInput,
   UserPromptSubmitInput,
   WorktreeCreateInput,
   WorktreeRemoveInput,
@@ -119,14 +123,14 @@ function getCommonFields(): {
       // The session store is the transcript: a hook that audits what happened
       // reads the same file the resume path writes.
       transcript_path: getSessionFilePath(),
-      cwd: process.cwd(),
+      cwd: currentWorkspaceRoot(),
       permission_mode: permissionMode,
     };
   } catch {
     return {
       session_id: "",
       transcript_path: "",
-      cwd: process.cwd(),
+      cwd: currentWorkspaceRoot(),
     };
   }
 }
@@ -258,6 +262,58 @@ export async function fireSubagentStop(
     last_assistant_message: lastAssistantMessage,
   };
 
+  return services.hooks.fireEvent(input);
+}
+
+export async function fireTaskCreated(
+  taskId: string,
+  subject: string,
+  description?: string,
+  teammateName?: string,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+  const input: TaskCreatedInput = {
+    ...getCommonFields(),
+    hook_event_name: "TaskCreated",
+    task_id: taskId,
+    task_subject: subject,
+    ...(description ? { task_description: description } : {}),
+    ...(teammateName ? { teammate_name: teammateName } : {}),
+  };
+  return services.hooks.fireEvent(input);
+}
+
+export async function fireTaskCompleted(
+  taskId: string,
+  subject: string,
+  description?: string,
+  teammateName?: string,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+  const input: TaskCompletedInput = {
+    ...getCommonFields(),
+    hook_event_name: "TaskCompleted",
+    task_id: taskId,
+    task_subject: subject,
+    ...(description ? { task_description: description } : {}),
+    ...(teammateName ? { teammate_name: teammateName } : {}),
+  };
+  return services.hooks.fireEvent(input);
+}
+
+export async function fireTeammateIdle(
+  teammateName: string,
+  lastAssistantMessage?: string,
+): Promise<HookEventResult> {
+  if (!isHookServiceReady()) return NOOP_RESULT;
+  const input: TeammateIdleInput = {
+    ...getCommonFields(),
+    hook_event_name: "TeammateIdle",
+    teammate_name: teammateName,
+    ...(lastAssistantMessage
+      ? { last_assistant_message: lastAssistantMessage }
+      : {}),
+  };
   return services.hooks.fireEvent(input);
 }
 

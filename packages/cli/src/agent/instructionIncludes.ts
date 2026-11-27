@@ -1,6 +1,8 @@
 import * as fs from "fs";
 import * as path from "path";
 
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
+
 // An instruction file is copied into the request prefix every round, so it is
 // bounded the way the reference bounds its own: a size limit, a depth limit for
 // @includes, and a note in the text whenever either one cut something.
@@ -63,7 +65,7 @@ function isIncludeIntent(target: string, resolved: string): boolean {
 }
 
 function labelFor(filePath: string): string {
-  const relative = path.relative(process.cwd(), filePath);
+  const relative = path.relative(currentWorkspaceRoot(), filePath);
   return !relative || relative.startsWith("..") ? filePath : relative;
 }
 

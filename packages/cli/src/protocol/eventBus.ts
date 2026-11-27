@@ -15,10 +15,18 @@ export function publishAgentEvent(event: AgentEvent): void {
   }
 }
 
-export function subscribeAgentEvents(listener: Listener): () => void {
-  listeners.add(listener);
+export function subscribeAgentEvents(
+  listener: Listener,
+  sessionId?: string,
+): () => void {
+  const scoped: Listener = (event) => {
+    if (sessionId === undefined || event.sessionId === sessionId) {
+      listener(event);
+    }
+  };
+  listeners.add(scoped);
   return () => {
-    listeners.delete(listener);
+    listeners.delete(scoped);
   };
 }
 

@@ -1,9 +1,18 @@
+import {
+  ACCEPT_EDITS_MODE_POLICIES,
+  BYPASS_PERMISSIONS_POLICIES,
+  DONT_ASK_MODE_POLICIES,
+  getDefaultToolPolicies,
+  PLAN_MODE_POLICIES,
+} from "../permissions/defaultPolicies.js";
+import { matchesToolPattern } from "../permissions/permissionChecker.js";
 import type {
   AdvertiseBasis,
   PermissionMode,
   ToolPermissionPolicy,
   ToolPermissions,
 } from "../permissions/types.js";
+import type { RealmId } from "../realm/realmTree.js";
 import type { SubagentRestriction } from "../team/restrictions.js";
 
 export type { SubagentRestriction };
@@ -40,6 +49,10 @@ export interface AgentRunContext {
   readonly permissions: ToolPermissions;
   readonly mode: PermissionMode;
   readonly abortSignal: AbortSignal;
+  /** Runtime isolation realm; nested dispatches fork from this value. */
+  readonly realmId?: RealmId;
+  /** Isolated filesystem root for this delegated run. */
+  readonly workspaceRoot?: string;
 }
 
 export const READONLY_SUBAGENT_NOTICE =
@@ -90,12 +103,60 @@ function namesExcludedBy(
  * stays excluded, and an "ask" the parent would have prompted for becomes
  * "exclude" rather than something the child can silently allow itself.
  */
+function policiesForMode(mode: PermissionMode): ToolPermissions {
+  switch (mode) {
+    case "plan":
+      return { policies: PLAN_MODE_POLICIES };
+    case "acceptEdits":
+      return { policies: ACCEPT_EDITS_MODE_POLICIES };
+    case "bypassPermissions":
+      return { policies: BYPASS_PERMISSIONS_POLICIES };
+    case "dontAsk":
+      return { policies: DONT_ASK_MODE_POLICIES };
+    default:
+      return { policies: getDefaultToolPolicies() };
+  }
+}
+
+function applyToolAllowlist(
+  permissions: ToolPermissions,
+  allowedTools?: readonly string[],
+): ToolPermissions {
+  if (!allowedTools) return permissions;
+  const allowed = new Set([...allowedTools, "SendMessage"]);
+  const policies: ToolPermissionPolicy[] = [];
+  for (const policy of permissions.policies) {
+    if (policy.tool === "*") continue;
+    if (
+      allowed.has(policy.tool) ||
+      [...allowed].some((pattern) => matchesToolPattern(policy.tool, pattern))
+    ) {
+      policies.push(policy);
+    }
+  }
+  for (const pattern of allowed) {
+    if (policies.some((policy) => policy.tool === pattern)) continue;
+    const inherited = permissions.policies.find((policy) =>
+      matchesToolPattern(pattern, policy.tool),
+    );
+    policies.push(
+      inherited
+        ? { ...inherited, tool: pattern }
+        : { tool: pattern, permission: "exclude" },
+    );
+  }
+  policies.push({ tool: "*", permission: "exclude" });
+  return { policies };
+}
+
 export function narrowPermissions(
   parent: ToolPermissions,
   options: {
     restriction?: SubagentRestriction;
     /** Named tools this child never sees, on top of what the restriction cuts. */
     deniedTools?: readonly string[];
+    /** When present, only these tools plus SendMessage remain available. */
+    allowedTools?: readonly string[];
   },
 ): ToolPermissions {
   const excluded = new Set([
@@ -103,13 +164,16 @@ export function narrowPermissions(
     ...(options.deniedTools ?? []),
   ]);
   if (excluded.size === 0) {
-    return {
-      policies: parent.policies.map((policy) =>
-        policy.permission === "ask"
-          ? { ...policy, permission: "exclude" as const }
-          : policy,
-      ),
-    };
+    return applyToolAllowlist(
+      {
+        policies: parent.policies.map((policy) =>
+          policy.permission === "ask"
+            ? { ...policy, permission: "exclude" as const }
+            : policy,
+        ),
+      },
+      options.allowedTools,
+    );
   }
 
   const policies: ToolPermissionPolicy[] = [];
@@ -128,7 +192,9 @@ export function narrowPermissions(
       continue;
     }
 
-    if (excluded.has(policy.tool)) {
+    if (
+      [...excluded].some((pattern) => matchesToolPattern(policy.tool, pattern))
+    ) {
       policies.push({ tool: policy.tool, permission: "exclude" });
       continue;
     }
@@ -139,7 +205,7 @@ export function narrowPermissions(
     );
   }
 
-  return { policies };
+  return applyToolAllowlist({ policies }, options.allowedTools);
 }
 
 export function createChildContext(
@@ -151,9 +217,16 @@ export function createChildContext(
     abortSignal?: AbortSignal;
     restriction?: SubagentRestriction;
     deniedTools?: readonly string[];
+    allowedTools?: readonly string[];
+    permissionMode?: PermissionMode;
+    realmId?: RealmId;
+    workspaceRoot?: string;
   },
 ): AgentRunContext {
   const restriction = overrides.restriction;
+  const mode = overrides.permissionMode ?? parent.mode;
+  const basePermissions =
+    mode === parent.mode ? parent.permissions : policiesForMode(mode);
   const restrictionNotice =
     restriction === "readonly"
       ? READONLY_SUBAGENT_NOTICE
@@ -176,12 +249,15 @@ export function createChildContext(
     systemMessage: notice
       ? `${overrides.systemMessage}\n\n${notice}`
       : overrides.systemMessage,
-    permissions: narrowPermissions(parent.permissions, {
+    permissions: narrowPermissions(basePermissions, {
       restriction,
       deniedTools: overrides.deniedTools,
+      allowedTools: overrides.allowedTools,
     }),
-    mode: parent.mode,
+    mode,
     abortSignal: overrides.abortSignal ?? parent.abortSignal,
     advertise: parent.advertise,
+    realmId: overrides.realmId ?? parent.realmId,
+    workspaceRoot: overrides.workspaceRoot ?? parent.workspaceRoot,
   };
 }

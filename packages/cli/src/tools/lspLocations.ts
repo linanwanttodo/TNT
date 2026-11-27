@@ -2,6 +2,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import { toDisplayPath } from "../utils/displayPath.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 /**
  * A server may answer with a file URI or an opaque scheme; show both readably.
@@ -23,7 +24,7 @@ export function describeLspUri(uri: string | undefined): string {
 
   const underCwd = ((): string | null => {
     try {
-      const local = path.relative(process.cwd(), fileURLToPath(uri));
+      const local = path.relative(currentWorkspaceRoot(), fileURLToPath(uri));
       return local && !local.startsWith("..") ? local : null;
     } catch {
       return null;

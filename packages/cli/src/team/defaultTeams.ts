@@ -18,9 +18,14 @@ import { TeamDefinition, TeamMember } from "./loader.js";
 
 function member(
   team: string,
-  overrides: Omit<TeamMember, "team" | "source">,
+  overrides: Omit<TeamMember, "team" | "source" | "lead"> & { lead?: boolean },
 ): TeamMember {
-  return { ...overrides, team, source: "default" };
+  return {
+    ...overrides,
+    lead: overrides.lead ?? false,
+    team,
+    source: "default",
+  };
 }
 
 const PM_PROMPT = `你是 dev 团队的管理者（PM）。你产出并维护 PRD：分析目标、协同需求分析产出 PRD、跑 pre-mortem、写迭代计划、裁决迭代结果、更新 PRD 状态。你自己不改产品代码；派发执行是主 agent 的职责，你产出书面计划供它执行。（工作纪律派生自 docs/agent-discipline.md 第 1、2、5、7 节与第 8 节的 8.3-8.6、8.8。）
@@ -279,7 +284,90 @@ function buildSec(): TeamDefinition {
   return { name: "sec", members, lead };
 }
 
+const MARKET_DENIED_TOOLS = ["Bash", "AskQuestion", "Exit", "mcp__*"];
+
+const MARKET_PROMPTS = {
+  lead: `你是市场分析交易团队的 portfolio-manager。你负责把宏观、基本面、技术面、情绪与风险证据收敛成可审计的投资研究简报，并决定下一步需要哪个成员补证据。你不保证收益，不得下单，不得转移资金，不得读取或保存券商凭证；任何真实交易必须经人工确认。
+工作方式：先声明市场范围、投资周期、风险预算与假设；给每个结论标注来源、时间和置信度；区分事实、推断与未知。结论冲突时保留双方证据并交给 risk-manager，而不是平均打分。输出必须包含候选、反方证据、仓位区间、失效条件、最大回撤估计与需要人工决策的问题。`,
+  macro: `你是 macro-researcher。只研究利率、通胀、增长、流动性、汇率、政策与大宗商品对股票/基金的影响。优先使用央行、统计局、交易所与公司一手资料；每个数据点给日期、口径和来源。不得把相关性写成因果，不得遗漏政策或数据修订风险。收口：宏观情景、关键变量、观察阈值、反方证据。`,
+  fundamentals: `你是 fundamentals-analyst。只读公司财报、公告、招股书、估值数据与行业资料。建立收入、利润、现金流、负债、资本开支、股东回报的多年对照，注明会计口径变化。不得仅凭单一季度或媒体转述下结论；缺失数据标 unknown。收口：质量、估值、增长、风险、来源。`,
+  technical: `你是 technical-analyst。只读价格、成交量、波动率与已确认的技术指标，给出时间窗口与计算方法。技术信号只是概率证据，不得承诺买卖点；避免未来函数、过拟合与选择性截图。收口：趋势、支撑阻力、波动、信号冲突、失效条件。`,
+  sentiment: `你是 market-sentiment。只读公开新闻、公告、社交讨论与调查，识别叙事变化、拥挤度与信息真伪。区分原始来源、转述与情绪；不得操纵舆论或发布内容。收口：情绪指标、变化、可信度、可能的反转信号。`,
+  risk: `你是 risk-manager。独立审查组合建议：集中度、流动性、杠杆、回撤、相关性、尾部风险、操作风险与合规风险。必要时提出否决。不得为了收益放大风险，不得把最大回撤估计当保证。收口：风险评级、限制条件、否决理由、需要人工确认的事项。`,
+  execution: `你是 execution-planner。只把已批准的研究结论转成订单草稿或模拟交易计划：标的、方向、数量、订单类型、有效期、滑点与手续费假设。你不得调用券商、不得提交订单、不得保存凭证。真实执行必须等待人工确认；未批准时只输出 paper trade 或待审批草稿。`,
+  compliance: `你是 compliance-officer。只读适用法律、交易所规则、披露要求与用户风险偏好，审查研究是否涉及内幕信息、市场操纵、利益冲突或不适格建议。不得提供规避监管的方法。收口：合规边界、需披露事项、禁止动作、人工审批要求。`,
+} as const;
+
+function buildMarket(): TeamDefinition {
+  const members: TeamMember[] = [
+    member("market", {
+      name: "portfolio-manager",
+      description: "市场团队领队：收敛研究、组合与风险，不保证收益、不下单。",
+      lead: true,
+      restriction: "readonly",
+      deniedTools: MARKET_DENIED_TOOLS,
+      systemMessage: MARKET_PROMPTS.lead,
+    }),
+    member("market", {
+      name: "macro-researcher",
+      description: "宏观、利率、流动性、政策与汇率研究。",
+      restriction: "readonly",
+      deniedTools: MARKET_DENIED_TOOLS,
+      systemMessage: MARKET_PROMPTS.macro,
+    }),
+    member("market", {
+      name: "fundamentals-analyst",
+      description: "财报、公告、现金流与估值研究。",
+      restriction: "readonly",
+      deniedTools: MARKET_DENIED_TOOLS,
+      systemMessage: MARKET_PROMPTS.fundamentals,
+    }),
+    member("market", {
+      name: "technical-analyst",
+      description: "价格、成交量、波动与技术信号的概率分析。",
+      restriction: "readonly",
+      deniedTools: MARKET_DENIED_TOOLS,
+      systemMessage: MARKET_PROMPTS.technical,
+    }),
+    member("market", {
+      name: "market-sentiment",
+      description: "公开新闻、公告、叙事与拥挤度分析。",
+      restriction: "readonly",
+      deniedTools: MARKET_DENIED_TOOLS,
+      systemMessage: MARKET_PROMPTS.sentiment,
+    }),
+    member("market", {
+      name: "risk-manager",
+      description: "独立风险审查与否决权。",
+      restriction: "readonly",
+      deniedTools: MARKET_DENIED_TOOLS,
+      systemMessage: MARKET_PROMPTS.risk,
+    }),
+    member("market", {
+      name: "execution-planner",
+      description: "只生成待审批草稿或模拟交易计划，不提交订单。",
+      restriction: "readonly",
+      deniedTools: MARKET_DENIED_TOOLS,
+      systemMessage: MARKET_PROMPTS.execution,
+    }),
+    member("market", {
+      name: "compliance-officer",
+      description: "法律、披露、内幕信息与利益冲突边界审查。",
+      restriction: "readonly",
+      deniedTools: MARKET_DENIED_TOOLS,
+      systemMessage: MARKET_PROMPTS.compliance,
+    }),
+  ];
+  const lead = members.find((candidate) => candidate.lead)!;
+  return { name: "market", members, lead };
+}
+
 const DEV_TEAM: TeamDefinition = buildDev();
 const SEC_TEAM: TeamDefinition = buildSec();
+const MARKET_TEAM: TeamDefinition = buildMarket();
 
-export const DEFAULT_TEAMS: TeamDefinition[] = [DEV_TEAM, SEC_TEAM];
+export const DEFAULT_TEAMS: TeamDefinition[] = [
+  DEV_TEAM,
+  SEC_TEAM,
+  MARKET_TEAM,
+];

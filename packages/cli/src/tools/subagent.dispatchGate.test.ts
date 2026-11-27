@@ -6,6 +6,9 @@ const activeTeam = vi.hoisted(() => ({
 const sessionOverrides = vi.hoisted(() => ({
   value: {} as Record<string, string>,
 }));
+const teamRunId = vi.hoisted(() => ({
+  value: undefined as string | undefined,
+}));
 vi.mock("../session/index.js", () => ({
   getSessionActiveTeam: vi.fn(() => activeTeam.value),
   getSessionTeamModelOverride: vi.fn(
@@ -16,12 +19,19 @@ vi.mock("../session/index.js", () => ({
       ? { ...sessionOverrides.value }
       : undefined,
   ),
+  getCurrentTeamRunMember: vi.fn(() => undefined),
+  getCurrentTeamRunId: vi.fn(() => teamRunId.value),
+  getTeamBriefs: vi.fn(() => []),
 }));
 vi.mock("../subagent/executor.js", () => ({
   executeSubAgent: vi.fn(async () => ({
     success: true,
     response: "done",
   })),
+}));
+vi.mock("../subagent/asyncExecutor.js", () => ({
+  dispatchSubAgent: vi.fn(),
+  resumeSubagentRun: vi.fn(),
 }));
 vi.mock("../services/ServiceContainer.js", () => ({
   serviceContainer: {
@@ -95,6 +105,7 @@ function devTeamWithImplementerModel(model?: string): TeamDefinition {
 
 beforeEach(() => {
   sessionOverrides.value = {};
+  teamRunId.value = undefined;
 });
 
 describe("dispatching a listed team member", () => {
@@ -121,7 +132,11 @@ describe("dispatching a listed team member", () => {
     const tool = await subagentTool();
 
     await tool.run(
-      { prompt: "do it", subagent_name: "implementer" },
+      {
+        prompt: "do it",
+        subagent_name: "implementer",
+        run_in_background: false,
+      },
       { toolCallId: "call-1", parallelToolCallCount: 1 },
     );
 
@@ -130,6 +145,21 @@ describe("dispatching a listed team member", () => {
     expect(options.agent.model?.chatOptions?.baseSystemMessage).toContain(
       "先写失败的测试",
     );
+  });
+
+  it("waits for team members by default so the lead cannot finish early", async () => {
+    vi.mocked(serviceContainer.get).mockResolvedValue(stateOf());
+    vi.mocked(executeSubAgent).mockClear();
+    teamRunId.value = "team-1";
+    const tool = await subagentTool();
+
+    const result = await tool.run(
+      { prompt: "do it", subagent_name: "implementer" },
+      { toolCallId: "call-1", parallelToolCallCount: 1 },
+    );
+
+    expect(executeSubAgent).toHaveBeenCalledTimes(1);
+    expect(result).toContain("done");
   });
 
   it("still throws for a name nothing resolves", async () => {

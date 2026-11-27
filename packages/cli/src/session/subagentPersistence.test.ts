@@ -79,6 +79,25 @@ describe("delegated session persistence", () => {
     expect(children[0]?.subagentType).toBe("Explore");
   });
 
+  it("persists pending parent messages across a child-session reload", () => {
+    const child = saveSubagentSession({
+      parentSessionId: "root-session",
+      subagentType: "Explore",
+      history: childHistory,
+    });
+    updateSubagentSession({
+      sessionId: child.sessionId,
+      history: childHistory,
+      pendingMessages: ["check the tests", "then report"],
+    });
+
+    const reloaded = loadSessionById(child.sessionId);
+    expect(reloaded?.pendingSubagentMessages).toEqual([
+      "check the tests",
+      "then report",
+    ]);
+  });
+
   it("shows the root session and hides the delegated one in the root list", async () => {
     updateSessionHistory(childHistory);
     const rootId = getCurrentSession().sessionId;

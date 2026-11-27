@@ -5,6 +5,7 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getLspManager } from "../lsp/manager.js";
+import { runInWorkspaceScope } from "../utils/workspaceScope.js";
 
 import { definitionTool } from "./definition.js";
 
@@ -40,7 +41,10 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await getLspManager().dispose();
+  await Promise.all([
+    getLspManager().dispose(),
+    getLspManager(workDir).dispose(),
+  ]);
   if (previousOverride === undefined) {
     delete process.env.TNT_PLUGINS_DIR;
   } else {
@@ -97,6 +101,23 @@ describe("the definition tool", () => {
     expect(result).toContain("1 definition(s)");
     expect(result).toContain("def.ts:2:3");
     expect(result).not.toContain("file:///workspace");
+  });
+
+  it("resolves a relative file against the scoped workspace", async () => {
+    writePlugin();
+    file();
+
+    const result = await runInWorkspaceScope(workDir, () =>
+      definitionTool.run({
+        file_path: "sample.ts",
+        line: 5,
+        character: 3,
+        kind: "definition",
+      }),
+    );
+
+    expect(result).toContain("1 definition(s)");
+    expect(result).toContain("def.ts:2:3");
   });
 
   it("reports the implementation location", async () => {

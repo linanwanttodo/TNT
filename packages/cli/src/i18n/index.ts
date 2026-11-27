@@ -262,6 +262,7 @@ const en = {
   "tools.unknownAgentTypeWithList":
     "Unknown agent type: {name}. Available agents: {agents}",
   "tools.unknownAgentType": "Unknown agent type: {name}",
+  "tools.noActiveParentSession": "No active parent session.",
   "tools.noActiveSession": "No active session found",
   "tools.summonTeamNoActiveTeam":
     "No roster could be chosen. Name one with the team argument, or activate one with /team <name>. Available rosters: {available}.",
@@ -295,6 +296,8 @@ const en = {
     'Unknown model "{model}". No models are configured.',
   "subagent.teamMemberTimeout":
     "Team member {name} timed out after {minutes} minutes.",
+  "subagent.teammateIdleBlocked":
+    "TeammateIdle blocked completion too many times.",
   "compaction.summaryEmpty": "Compaction summary is empty",
   "compaction.exceedsBudget":
     "Compaction request exceeds the available context budget",
@@ -418,16 +421,23 @@ const en = {
   "session.pressEsc": "Press Esc to exit",
   "session.navigate": "↑/↓ to navigate, Enter to select, Esc to exit",
   "subagent.empty": "No subagent sessions for this conversation yet.",
+  "subagent.parentInputMessageRequired":
+    "A parent-input request needs a message.",
+  "realm.unknownParent": "Cannot fork unknown realm {realm}.",
+  "realm.serviceConflict":
+    "Service {key} is already provided in realm {realm} by {owner}.",
   "subagent.title": "Subagent sessions ({count})",
   "subagent.unlabeled": "agent",
   "subagent.breadcrumb": "subagent: {type}",
   "subagent.readOnly":
-    "Read-only transcript. Use /back to return to the parent conversation.",
+    "Transcript. The parent can resume this child with SendMessage; use /back to return.",
   "subagent.selectorTitle": "Subagent sessions",
   "subagent.loading": "Loading subagent sessions...",
   "subagent.noParent": "This conversation is not a delegated session.",
   "subagent.tree.initializing": "Initializing...",
+  "subagent.tree.waitingInput": "Waiting for parent input",
   "subagent.tree.done": "Done",
+  "subagent.tree.cancelled": "Cancelled",
   "subagent.tree.failed": "Failed",
   "subagent.tree.background": "Running in the background",
   "subagent.tree.toolUseOne": "{count} tool use",
@@ -1264,6 +1274,7 @@ const zhCN: Record<TranslationKey, string> = {
   "tools.unknownAgentTypeWithList":
     "未知的智能体类型：{name}。可用智能体：{agents}",
   "tools.unknownAgentType": "未知的智能体类型：{name}",
+  "tools.noActiveParentSession": "当前没有活动父会话。",
   "tools.noActiveSession": "未找到活动会话",
   "tools.summonTeamNoActiveTeam":
     "未能确定名册。可用 team 参数指定，或用 /team <名称> 激活。可用名册：{available}。",
@@ -1292,6 +1303,7 @@ const zhCN: Record<TranslationKey, string> = {
     '未知模型 "{model}"。已配置的模型：{models}。',
   "tools.assignTeamModelNoModels": '未知模型 "{model}"。当前没有配置任何模型。',
   "subagent.teamMemberTimeout": "团队成员 {name} 在 {minutes} 分钟后超时。",
+  "subagent.teammateIdleBlocked": "TeammateIdle 阻止完成的次数过多。",
   "compaction.summaryEmpty": "压缩摘要为空",
   "compaction.exceedsBudget": "压缩请求超出可用的上下文预算",
   "compaction.noSummarizer":
@@ -1409,15 +1421,21 @@ const zhCN: Record<TranslationKey, string> = {
   "session.pressEsc": "按 Esc 退出",
   "session.navigate": "↑/↓ 移动，Enter 选择，Esc 退出",
   "subagent.empty": "本次会话还没有子代理记录。",
+  "subagent.parentInputMessageRequired": "父代理输入请求必须包含消息。",
+  "realm.unknownParent": "不能从不存在的 realm {realm} 创建子 realm。",
+  "realm.serviceConflict": "服务 {key} 已在 realm {realm} 由 {owner} 提供。",
   "subagent.title": "子代理会话（{count}）",
   "subagent.unlabeled": "子代理",
   "subagent.breadcrumb": "子代理：{type}",
-  "subagent.readOnly": "只读记录。输入 /back 返回父会话。",
+  "subagent.readOnly":
+    "会话记录。父代理可通过 SendMessage 续聊；输入 /back 返回父会话。",
   "subagent.selectorTitle": "子代理会话",
   "subagent.loading": "正在加载子代理会话...",
   "subagent.noParent": "当前会话不是子代理会话。",
   "subagent.tree.initializing": "正在初始化...",
+  "subagent.tree.waitingInput": "等待父代理输入",
   "subagent.tree.done": "已完成",
+  "subagent.tree.cancelled": "已取消",
   "subagent.tree.failed": "失败",
   "subagent.tree.background": "正在后台运行",
   "subagent.tree.toolUseOne": "{count} 次工具调用",

@@ -59,7 +59,15 @@ export const BUILTIN_SLASH_COMMANDS: BuiltinCommandSpec[] = [
   { name: "plugins", descriptionKey: "cmd.plugins" },
   { name: "worktree", descriptionKey: "cmd.worktree" },
   { name: "output-style", descriptionKey: "cmd.outputStyle" },
-  { name: "team", descriptionKey: "cmd.team" },
+  {
+    name: "team",
+    descriptionKey: "cmd.team",
+    subcommands: [
+      { name: "tasks", description: "Open the active team's task list" },
+      { name: "off", description: "Deactivate the current team" },
+      { name: "create", description: "Create a team roster" },
+    ],
+  },
   { name: "loop", descriptionKey: "cmd.loop" },
   { name: "ide", descriptionKey: "cmd.ide" },
   { name: "diagnostics", descriptionKey: "cmd.diagnostics" },

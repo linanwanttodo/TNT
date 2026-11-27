@@ -4,6 +4,7 @@ import { pathToFileURL } from "url";
 
 import { loadAllPlugins } from "../plugins/loader.js";
 import { logger } from "../utils/logger.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { LspClient, LspDiagnostic, LspServerConfig } from "./client.js";
 import {
@@ -517,13 +518,33 @@ export function renderHover(answer: unknown): string | null {
   return null;
 }
 
-let manager: LspManager | null = null;
+const managers = new Map<string, LspManager>();
+let exitCleanupRegistered = false;
 
-export function getLspManager(): LspManager {
+export function getLspManager(
+  rootPath: string = currentWorkspaceRoot(),
+): LspManager {
+  const root = path.resolve(rootPath);
+  let manager = managers.get(root);
   if (!manager) {
     manager = new LspManager();
-    // Registered once with the manager, so repeated calls cannot stack handlers.
-    process.once("exit", () => manager?.stopAllNow());
+    managers.set(root, manager);
+    if (!exitCleanupRegistered) {
+      exitCleanupRegistered = true;
+      process.once("exit", () => {
+        for (const active of managers.values()) active.stopAllNow();
+      });
+    }
   }
   return manager;
+}
+
+export async function disposeLspManager(
+  rootPath: string = currentWorkspaceRoot(),
+): Promise<void> {
+  const root = path.resolve(rootPath);
+  const manager = managers.get(root);
+  if (!manager) return;
+  await manager.dispose();
+  if (managers.get(root) === manager) managers.delete(root);
 }

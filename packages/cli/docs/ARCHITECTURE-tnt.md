@@ -480,10 +480,9 @@ data/<plugin-id>/}` and reads `~/.claude/plugins/cache` as a second search
   every hook input is the session transcript itself (`session.jsonl` for a v2
   session, or the legacy `.json` file), because that is what a resumed run
   reads; it used to be sent as an empty string, which told an auditing hook there
-  was nothing to audit. Thirteen of the seventeen declared events are fired;
-  `TeammateIdle`, `TaskCompleted`, `WorktreeCreate` and `WorktreeRemove` are
-  declared for manifest compatibility and nothing fires them, which is stated here
-  rather than left for a hook author to discover. A PreToolUse
+  was nothing to audit. All eighteen declared events have production fire sites;
+  `TaskCreated`, `TaskCompleted`, `TeammateIdle`, `WorktreeCreate` and
+  `WorktreeRemove` all have production fire sites. A PreToolUse
   hook's stdout fields are honored beyond its exit code: the hook runs before
   the permission check, `permissionDecision: "allow"` skips the policy check
   for that call, and `updatedInput` replaces the arguments the check and the
@@ -523,11 +522,23 @@ one the registry describes.
 
 Delegation is allowed in every mode, including plan mode, because the child
 context narrows what the parent had: a delegate cannot exceed the restrictions
-of the session that started it. Nothing is left to a default either: a tool with
+of the session that started it. `Subagent` dispatches in the background by
+default and returns a run id plus the persisted child session id. The asynchronous
+runtime owns only the live run handle, abort controller and pending steers; the
+JSONL child session remains the transcript source of truth. `TaskOutput` reads
+the result, `TaskStop` aborts one child, and `SendMessage` steers a running child
+or resumes the same session after it finishes. A child can message its parent to
+pause at `waiting_input`; the reply starts a new execution against the same
+transcript instead of creating another child. Inside a summoned team run, member
+dispatch defaults to the foreground so the lead waits for the batch's reports;
+only an explicit `run_in_background: true` lets the lead move on before members
+finish.
+
+Nothing is left to a default either: a tool with
 no policy falls back to prompting, so a test checks that every tool a run is
 actually offered has an explicit rule in both the agent and plan lists. It reads
-the list a run is offered rather than the static registry, because the beta
-gated tools are only built at runtime and an earlier version of the check could
+the list a run is offered rather than the static registry, because conditional
+tools are only built at runtime and an earlier version of the check could
 not see them. Those tools are also registered, since other consumers read the
 registry directly: an agent file that names the tools it may use excludes every
 other built-in by name, and a tool missing from the registry would escape that
@@ -560,6 +571,17 @@ so a report that quotes the format does not report a result - the executor
 carries it on `SubAgentResult.verdict`, and the delegation tool writes it into
 `<task_metadata>` alongside the status. Any declared agent can be written against
 the same contract: an agent file, or a plugin's `agent` hook.
+
+Team runs add a session-scoped ledger and a short intercom channel. The ledger
+stores member status, child session ids, final reports and briefs, while full
+transcripts stay in their child sessions. `AsyncLocalStorage` keeps concurrent
+run attribution on the owning session even if the visible session changes.
+`src/realm/` supplies one-way service visibility for nested runs; the service
+table and runtime share the same realm tree. The table is an isolation primitive,
+not yet the container used by production services: `ServiceContainer` remains
+process-global, so wiring realm-aware service resolution is still an open gap. The default `market` team is read-only and separates research,
+risk, compliance and execution planning; real orders remain outside the engine
+and require explicit human approval.
 
 ## 7. What is deliberately not translated
 

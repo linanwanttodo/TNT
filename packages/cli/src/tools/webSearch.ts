@@ -1,17 +1,19 @@
 import { TntError, TntErrorReason } from "core/util/errors.js";
 
+import { logger } from "../utils/logger.js";
 import {
-  assertPublicHttpUrl,
+  fetchPublicUrl,
   hasConfiguredSearchEndpoint,
   resolveConfiguredSearchEndpoint,
 } from "../utils/urlGuard.js";
 
 import { Tool } from "./types.js";
 
-const DEFAULT_SEARCH_URL = "https://lite.duckduckgo.com/lite/";
+const DEFAULT_SEARCH_URL = "https://html.duckduckgo.com/html/";
+const EXA_SEARCH_URL = "https://mcp.exa.ai/mcp";
 const DEFAULT_COUNT = 5;
 const MAX_COUNT = 10;
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 25_000;
 const MAX_BODY_CHARS = 500_000;
 
 export interface SearchResult {
@@ -105,6 +107,54 @@ export function parseDuckDuckGoLite(
   return results;
 }
 
+export function parseExaSearchText(
+  text: string,
+  count: number = DEFAULT_COUNT,
+): SearchResult[] {
+  const results: SearchResult[] = [];
+  const blocks = text.split(/^Title:\s*/m).slice(1);
+  for (const block of blocks) {
+    const lines = block.split(/\r?\n/);
+    const title = lines.shift()?.trim() ?? "";
+    const urlLine = lines.findIndex((line) => line.startsWith("URL:"));
+    if (!title || urlLine < 0) continue;
+    const url = lines[urlLine].slice("URL:".length).trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+    const snippet = lines
+      .slice(urlLine + 1)
+      .map((line) => line.replace(/^Highlights:\s*/i, ""))
+      .filter((line) => {
+        const trimmed = line.trim();
+        return trimmed !== "" && !/^(Published|Author):/i.test(trimmed);
+      })
+      .join("\n")
+      .trim();
+    results.push({ title, url, snippet });
+    if (results.length >= count) break;
+  }
+  return results;
+}
+
+function exaTextFromResponse(body: string): string {
+  const texts: string[] = [];
+  for (const line of body.split(/\r?\n/)) {
+    if (!line.startsWith("data:")) continue;
+    const payload = line.slice("data:".length).trim();
+    if (!payload || payload === "[DONE]") continue;
+    try {
+      const parsed = JSON.parse(payload) as {
+        result?: { content?: Array<{ type?: string; text?: string }> };
+      };
+      for (const item of parsed.result?.content ?? []) {
+        if (item.type === "text" && item.text) texts.push(item.text);
+      }
+    } catch {
+      // A progress event or keep-alive is not a search result.
+    }
+  }
+  return texts.join("\n\n");
+}
+
 /** A result belongs to a domain when its host is that domain or under it. */
 export function matchesDomain(url: string, domain: string): boolean {
   try {
@@ -150,7 +200,7 @@ async function searchJsonEndpoint(
     headers.Authorization = `Bearer ${key}`;
   }
 
-  const response = await fetch(endpoint, {
+  const response = await fetchPublicUrl(endpoint, {
     headers,
     signal: AbortSignal.timeout(TIMEOUT_MS),
   });
@@ -182,34 +232,107 @@ async function searchJsonEndpoint(
     .filter((result) => result.url !== "");
 }
 
+async function searchExa(
+  query: string,
+  count: number,
+): Promise<SearchResult[]> {
+  const endpoint = new URL(EXA_SEARCH_URL);
+  const key = process.env.EXA_API_KEY?.trim();
+  if (key) endpoint.searchParams.set("exaApiKey", key);
+  const response = await fetchPublicUrl(endpoint, {
+    method: "POST",
+    headers: {
+      Accept: "application/json, text/event-stream",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "web_search_exa",
+        arguments: { query, numResults: count },
+      },
+    }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    allowedHosts: [endpoint.hostname],
+    resolveWithProxy: true,
+  });
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 500).trim();
+    throw new TntError(
+      TntErrorReason.Unspecified,
+      `Exa web search failed: ${response.status} ${response.statusText}${
+        detail ? `: ${detail}` : ""
+      }`,
+    );
+  }
+  const body = (await response.text()).slice(0, MAX_BODY_CHARS);
+  return parseExaSearchText(exaTextFromResponse(body), count);
+}
+
 async function searchPublicHtml(
   query: string,
   count: number,
 ): Promise<SearchResult[]> {
-  const endpoint = await assertPublicHttpUrl(DEFAULT_SEARCH_URL);
-  endpoint.searchParams.set("q", query);
-  const response = await fetch(endpoint, {
+  const endpoint = new URL(DEFAULT_SEARCH_URL);
+  const response = await fetchPublicUrl(endpoint, {
+    method: "POST",
     headers: {
       Accept: "text/html",
-      "User-Agent": "TNT-CLI",
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
     },
+    body: new URLSearchParams({ q: query }).toString(),
     signal: AbortSignal.timeout(TIMEOUT_MS),
+    allowedHosts: [endpoint.hostname],
+    resolveWithProxy: true,
   });
+  if (response.status === 202) {
+    await response.body?.cancel();
+    throw new TntError(
+      TntErrorReason.Unspecified,
+      "DuckDuckGo web search returned a challenge page (HTTP 202). Try again later or configure TNT_WEB_SEARCH_URL.",
+    );
+  }
   if (!response.ok) {
     throw new TntError(
       TntErrorReason.Unspecified,
-      `Web search failed: ${response.status} ${response.statusText}`,
+      `DuckDuckGo web search failed: ${response.status} ${response.statusText}`,
     );
   }
   const html = (await response.text()).slice(0, MAX_BODY_CHARS);
   return parseDuckDuckGoLite(html, count);
 }
 
+async function searchBuiltInEndpoints(
+  query: string,
+  count: number,
+): Promise<SearchResult[]> {
+  try {
+    const results = await searchExa(query, count);
+    if (results.length > 0) return results;
+  } catch (error) {
+    loggerDebugSearchFailure("Exa", error);
+  }
+  try {
+    return await searchPublicHtml(query, count);
+  } catch (error) {
+    loggerDebugSearchFailure("DuckDuckGo", error);
+    throw error;
+  }
+}
+
+function loggerDebugSearchFailure(provider: string, error: unknown): void {
+  logger.debug(`WebSearch ${provider} failed`, error);
+}
+
 export const webSearchTool: Tool = {
   name: "WebSearch",
   displayName: "Web Search",
   description: `Search the web and return titles, URLs and short snippets. Use it when the answer depends on something outside the workspace: current documentation, a release note, an error message from a project this repository does not contain, or a fact the model may have stale.
-The default endpoint is a public HTML search page and can be rate-limited; set TNT_WEB_SEARCH_URL to a JSON endpoint that returns {"results":[{"title","url","description"}]}, and TNT_WEB_SEARCH_KEY if it needs a bearer token. Results are search snippets, not evidence: open a promising page with Fetch before relying on its content. Pass domains to keep the search to a site or two.`,
+Exa is tried first and DuckDuckGo is the keyless fallback. Set EXA_API_KEY to raise Exa's limits. Set TNT_WEB_SEARCH_URL to a JSON endpoint that returns {"results":[{"title","url","description"}]}, and TNT_WEB_SEARCH_KEY if it needs a bearer token. Results are search snippets, not evidence: open a promising page with Fetch before relying on its content. Pass domains to keep the search to a site or two.`,
   parameters: {
     type: "object",
     required: ["query"],
@@ -230,7 +353,7 @@ The default endpoint is a public HTML search page and can be rate-limited; set T
       },
     },
   },
-  readonly: false,
+  readonly: true,
   isBuiltIn: true,
   preprocess: async (args) => ({
     args,
@@ -262,7 +385,7 @@ The default endpoint is a public HTML search page and can be rate-limited; set T
       domains.length > 0 ? queryWithDomains(query, domains) : query;
     const found = hasConfiguredSearchEndpoint()
       ? await searchJsonEndpoint(searchQuery, count)
-      : await searchPublicHtml(searchQuery, count);
+      : await searchBuiltInEndpoints(searchQuery, count);
     // The site: terms are a request, not a guarantee, so the filter holds.
     const results =
       domains.length > 0

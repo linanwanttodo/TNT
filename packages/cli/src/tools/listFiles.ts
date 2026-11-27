@@ -4,6 +4,7 @@ import * as path from "path";
 import { TntError, TntErrorReason } from "core/util/errors.js";
 
 import { toDisplayPath } from "../utils/displayPath.js";
+import { workspaceRoot } from "../utils/workspaceScope.js";
 
 import { formatToolArgument } from "./formatters.js";
 import { Tool } from "./types.js";
@@ -32,7 +33,7 @@ export const listFilesTool: Tool = {
     // reached path.normalize and surfaced as a TypeError.
     const requested = typeof args?.dirpath === "string" ? args.dirpath : "";
     const dirPath = path.resolve(
-      process.cwd(),
+      workspaceRoot(),
       path.normalize(requested || "."),
     );
 

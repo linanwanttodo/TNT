@@ -51,6 +51,12 @@ describe("tool policy coverage", () => {
       "needs the beta flag, a run below the depth limit and an active team",
     SummonTeam:
       "needs the beta flag, a run below the depth limit and an active team",
+    TaskCreate: "needs an active team run",
+    TaskGet: "needs an active team run",
+    TaskList: "needs an active team run",
+    TaskUpdate: "needs an active team run",
+    TaskOutput: "needs a run below the depth limit",
+    TaskStop: "needs a run below the depth limit",
   };
 
   /** Withheld in every mode of this test's flags, so its absence is checkable. */
@@ -137,9 +143,17 @@ describe("tool policy coverage", () => {
       expect(cannotDelegate).not.toContain("ListSubagents");
       expect(cannotDelegate).not.toContain("AssignTeamModel");
       expect(cannotDelegate).not.toContain("SummonTeam");
-      // Only the four dispatch tools disappear; everything else is untouched.
+      expect(cannotDelegate).not.toContain("TaskOutput");
+      expect(cannotDelegate).not.toContain("TaskStop");
+      expect(cannotDelegate).not.toContain("TaskCreate");
+      expect(cannotDelegate).not.toContain("TaskGet");
+      expect(cannotDelegate).not.toContain("TaskList");
+      expect(cannotDelegate).not.toContain("TaskUpdate");
+      expect(cannotDelegate).toContain("SendMessage");
       expect(cannotDelegate).toContain("Read");
-      expect(cannotDelegate.length).toBe(mayDelegate.length - 4);
+      // Dispatch and run-control tools disappear; messaging remains available
+      // so a depth-limited child can still ask its parent for input.
+      expect(cannotDelegate.length).toBe(mayDelegate.length - 10);
     });
   });
 

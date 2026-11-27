@@ -3,6 +3,7 @@ import {
   lookupLocalSymbols,
   type SymbolIndexHit,
 } from "../retrieval/symbolIndex.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { describeLspUri } from "./lspLocations.js";
 import { symbolKindName } from "./lspSymbolKinds.js";
@@ -62,9 +63,9 @@ When no language server is configured - or one has no match - the answer comes f
     // through to a language server. When a server is configured it stays
     // authoritative, and the index is the second chance on its miss.
     const manager = getLspManager();
-    const running = await manager.ensureStarted(process.cwd());
+    const running = await manager.ensureStarted(currentWorkspaceRoot());
     if (running === 0) {
-      const layer = await lookupLocalSymbols(process.cwd(), query);
+      const layer = await lookupLocalSymbols(currentWorkspaceRoot(), query);
       if (layer && layer.length > 0) {
         return localLayerAnswer(
           query,
@@ -77,7 +78,7 @@ When no language server is configured - or one has no match - the answer comes f
 
     const symbols = await manager.findSymbols(query);
     if (symbols.length === 0) {
-      const layer = await lookupLocalSymbols(process.cwd(), query);
+      const layer = await lookupLocalSymbols(currentWorkspaceRoot(), query);
       if (layer && layer.length > 0) {
         return localLayerAnswer(
           query,

@@ -114,9 +114,7 @@ describe("the hooks page", () => {
     const page = fs.readFileSync(HOOKS_PAGE, "utf-8");
 
     expect(HOOK_EVENT_NAMES.filter((name) => !page.includes(name))).toEqual([]);
-    // `TeammateIdle` and `TaskCompleted` were removed from the registry; a page that still
-    // lists them teaches a hook nobody runs.
-    expect(page).not.toContain("TeammateIdle");
-    expect(page).not.toContain("TaskCompleted");
+    expect(page).toContain("TeammateIdle");
+    expect(page).toContain("TaskCompleted");
   });
 });

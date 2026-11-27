@@ -10,6 +10,8 @@ export interface PublicUrlOptions {
    * a user-configured endpoint may point at loopback.
    */
   allowedHosts?: string[];
+  /** The request is routed through a proxy that resolves the target hostname. */
+  resolveWithProxy?: boolean;
 }
 
 /**
@@ -35,7 +37,8 @@ export async function assertPublicHttpUrl(
   }
 
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (opts.allowedHosts?.includes(host)) {
+  const allowed = opts.allowedHosts?.includes(host) ?? false;
+  if (allowed && !opts.resolveWithProxy) {
     return url;
   }
 
@@ -56,6 +59,15 @@ export async function assertPublicHttpUrl(
   }
 
   const resolved = await dns.lookup(host, { all: true });
+  if (
+    allowed &&
+    opts.resolveWithProxy &&
+    proxyHandlesHost(url) &&
+    resolved.length > 0 &&
+    resolved.every((entry) => isSyntheticProxyAddress(entry.address))
+  ) {
+    return url;
+  }
   if (
     resolved.length === 0 ||
     resolved.some((entry) => isPrivateAddress(entry.address))
@@ -99,25 +111,71 @@ export async function fetchConfiguredUrl(
  */
 export async function fetchPublicUrl(
   input: string | URL,
-  init: RequestInit & { allowedHosts?: string[] } = {},
+  init: RequestInit & PublicUrlOptions = {},
 ): Promise<Response> {
   const current = await assertPublicHttpUrl(input, {
     allowedHosts: init.allowedHosts,
+    resolveWithProxy: init.resolveWithProxy,
   });
-  const { allowedHosts, ...forwarded } = init;
+  const { allowedHosts, resolveWithProxy, ...forwarded } = init;
   let response = await fetch(current, { ...forwarded, redirect: "manual" });
+  let previousOrigin = current.origin;
   for (let hop = 0; hop < MAX_REDIRECT_HOPS; hop++) {
     const location = response.headers.get("location");
     if (response.status < 300 || response.status >= 400 || location === null) {
       return response;
     }
+    await response.body?.cancel();
     const next = await assertPublicHttpUrl(
       new URL(location, response.url || current),
-      { allowedHosts },
+      { allowedHosts, resolveWithProxy },
     );
-    response = await fetch(next, { ...forwarded, redirect: "manual" });
+    let nextInit = forwarded;
+    if (next.origin !== previousOrigin) {
+      const headers = new Headers(forwarded.headers);
+      headers.delete("authorization");
+      headers.delete("proxy-authorization");
+      headers.delete("cookie");
+      nextInit = { ...forwarded, headers };
+    }
+    response = await fetch(next, { ...nextInit, redirect: "manual" });
+    previousOrigin = next.origin;
   }
   throw new Error(`Redirect chain exceeded ${MAX_REDIRECT_HOPS} hops`);
+}
+
+function proxyHandlesHost(url: URL): boolean {
+  const enabled =
+    process.env.NODE_USE_ENV_PROXY === "1" ||
+    process.execArgv.includes("--use-env-proxy");
+  if (!enabled) return false;
+  const proxy =
+    url.protocol === "https:"
+      ? (process.env.HTTPS_PROXY ?? process.env.https_proxy)
+      : (process.env.HTTP_PROXY ?? process.env.http_proxy);
+  if (!proxy) return false;
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const noProxy = (process.env.NO_PROXY ?? process.env.no_proxy ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  return !noProxy.some((entry) => {
+    if (entry === "*") return true;
+    const normalized = entry.replace(/^\./, "");
+    return host === normalized || host.endsWith(`.${normalized}`);
+  });
+}
+
+function isSyntheticProxyAddress(address: string): boolean {
+  if (net.isIP(address) === 4) {
+    const bytes = address.split(".").map(Number);
+    return ipv4InCidr(bytes, [198, 18, 0, 0], 15);
+  }
+  if (net.isIP(address) === 6) {
+    const groups = parseIpv6(address);
+    return groups !== null && ipv6InCidr(groups, [0x2001, 0x0002, 0, 0], 48);
+  }
+  return false;
 }
 
 /** IPv4 CIDR containment over the four address bytes. */

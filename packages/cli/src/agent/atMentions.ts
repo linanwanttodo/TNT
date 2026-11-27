@@ -5,6 +5,7 @@ import type { ContextItemWithId } from "core/index.js";
 
 import { markFileAsSeen } from "../tools/fileState.js";
 import { toDisplayPath } from "../utils/displayPath.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 /**
  * What `@path` in a prompt does. The reference expands a mention into the
@@ -84,7 +85,7 @@ function contextItem(
  */
 export function expandMentions(
   input: string,
-  cwd: string = process.cwd(),
+  cwd: string = currentWorkspaceRoot(),
   alreadyAttached: ContextItemWithId[] = [],
 ): ExpandedMentions {
   const result: ExpandedMentions = { contextItems: [], notes: [] };

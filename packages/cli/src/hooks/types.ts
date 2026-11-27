@@ -21,6 +21,9 @@ export const HOOK_EVENT_NAMES = [
   "Notification",
   "SubagentStart",
   "SubagentStop",
+  "TaskCreated",
+  "TaskCompleted",
+  "TeammateIdle",
   "PreCompact",
   "ConfigChange",
   "WorktreeCreate",
@@ -208,6 +211,31 @@ export interface SubagentStopInput extends HookInputBase {
   last_assistant_message?: string;
 }
 
+export interface TaskCreatedInput extends HookInputBase {
+  hook_event_name: "TaskCreated";
+  task_id: string;
+  task_subject: string;
+  task_description?: string;
+  teammate_name?: string;
+  team_name?: string;
+}
+
+export interface TaskCompletedInput extends HookInputBase {
+  hook_event_name: "TaskCompleted";
+  task_id: string;
+  task_subject: string;
+  task_description?: string;
+  teammate_name?: string;
+  team_name?: string;
+}
+
+export interface TeammateIdleInput extends HookInputBase {
+  hook_event_name: "TeammateIdle";
+  teammate_name: string;
+  team_name?: string;
+  last_assistant_message?: string;
+}
+
 export interface PreCompactInput extends HookInputBase {
   hook_event_name: "PreCompact";
   trigger: "manual" | "auto";
@@ -242,6 +270,9 @@ export type HookInput =
   | NotificationInput
   | SubagentStartInput
   | SubagentStopInput
+  | TaskCreatedInput
+  | TaskCompletedInput
+  | TeammateIdleInput
   | PreCompactInput
   | ConfigChangeInput
   | WorktreeCreateInput

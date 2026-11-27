@@ -1,4 +1,5 @@
 import fs from "fs";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 import type { ToolCallCreateWorkflowCausalityGraph } from "@zcode/shared/zcode-protocol-v4";
 import type {
@@ -9,11 +10,14 @@ import type {
   Session,
   SessionGoalState,
   SessionUsage,
+  TeamBrief,
   TeamMemberRunStatus,
   TeamRunMemberRecord,
   TeamRunMode,
   TeamRunRecord,
   TeamRunStatus,
+  TeamTask,
+  TeamTaskView,
   Usage,
 } from "core/index.js";
 import { v4 as uuidv4 } from "uuid";
@@ -719,8 +723,11 @@ export function loadSessionById(sessionId: string): Session | null {
     const session = historyAdapter.load(sessionId);
     // A run still marked active on disk was written by a process that no
     // longer exists; settle it before anything reads the ledger.
+    const scope = teamRunScope.getStore();
+    const activeRunId =
+      scope?.sessionId === sessionId ? scope.runId : undefined;
     if (session.teamRuns?.length) {
-      session.teamRuns = settleStaleTeamRuns(session.teamRuns);
+      session.teamRuns = settleStaleTeamRuns(session.teamRuns, activeRunId);
     }
     return session;
   } catch (error) {
@@ -1012,6 +1019,19 @@ export const MAX_TEAM_RUN_MEMBERS = 16;
  * through the model's tool arguments.
  */
 let currentTeamRunId: string | undefined;
+const teamRunSessions = new Map<string, string>();
+const teamRunScope = new AsyncLocalStorage<{
+  runId: string;
+  sessionId: string;
+}>();
+
+export function runInTeamRunScope<T>(
+  runId: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  const sessionId = SessionManager.getInstance().getCurrentSession().sessionId;
+  return teamRunScope.run({ runId, sessionId }, task);
+}
 
 export interface BeginTeamRunOptions {
   team: string;
@@ -1052,14 +1072,26 @@ function cloneTeamRuns(runs: readonly TeamRunRecord[]): TeamRunRecord[] {
   return runs.map((run) => ({
     ...run,
     members: run.members.map((member) => ({ ...member })),
+    ...(run.briefs
+      ? { briefs: run.briefs.map((brief) => ({ ...brief })) }
+      : {}),
+    ...(run.tasks
+      ? {
+          tasks: run.tasks.map((task) => ({
+            ...task,
+            dependsOn: [...task.dependsOn],
+          })),
+        }
+      : {}),
   }));
 }
 
-function notifyTeamRunsChanged(sessionId: string): void {
+function notifyTeamRunsChanged(
+  sessionId: string,
+  teamRuns: readonly TeamRunRecord[],
+): void {
   if (teamRunChangeListeners.size === 0) return;
-  const runs = cloneTeamRuns(
-    SessionManager.getInstance().getCurrentSession().teamRuns ?? [],
-  );
+  const runs = cloneTeamRuns(teamRuns);
   for (const listener of [...teamRunChangeListeners]) {
     try {
       listener(sessionId, runs);
@@ -1078,12 +1110,235 @@ function saveSessionScalars(): void {
 
 function mutateTeamRuns(
   mutate: (runs: TeamRunRecord[]) => TeamRunRecord[],
+  targetSessionId?: string,
 ): void {
-  const manager = SessionManager.getInstance();
-  const session = manager.getCurrentSession();
+  const scopedSessionId = targetSessionId ?? teamRunScope.getStore()?.sessionId;
+  const session = scopedSessionId
+    ? loadSessionById(scopedSessionId)
+    : SessionManager.getInstance().getCurrentSession();
+  if (!session) return;
   session.teamRuns = mutate(session.teamRuns ?? []).slice(-MAX_TEAM_RUNS);
-  saveSessionScalars();
-  notifyTeamRunsChanged(session.sessionId);
+  if (scopedSessionId) {
+    sessionStore.sync(getSessionPersistenceSnapshot(session));
+  } else {
+    saveSessionScalars();
+  }
+  notifyTeamRunsChanged(session.sessionId, session.teamRuns);
+}
+
+export function getTeamRunSessionId(runId: string): string | undefined {
+  return teamRunSessions.get(runId) ?? teamRunScope.getStore()?.sessionId;
+}
+
+export function getTeamBriefs(runId: string): TeamBrief[] {
+  const scope = teamRunScope.getStore();
+  const session = scope
+    ? loadSessionById(scope.sessionId)
+    : SessionManager.getInstance().getCurrentSession();
+  return (
+    session?.teamRuns?.find((run) => run.runId === runId)?.briefs ?? []
+  ).map((brief) => ({ ...brief }));
+}
+
+export function appendTeamBrief(
+  runId: string,
+  input: Omit<TeamBrief, "briefId" | "createdAt">,
+): TeamBrief | undefined {
+  const content = input.content.trim().slice(0, 2000);
+  if (!content) return undefined;
+  const brief: TeamBrief = {
+    briefId: `brief-${uuidv4().slice(0, 8)}`,
+    from: input.from.trim(),
+    to: input.to.trim(),
+    type: input.type,
+    content,
+    createdAt: new Date().toISOString(),
+  };
+  let appended = false;
+  mutateTeamRuns(
+    (runs) =>
+      runs.map((run) => {
+        if (run.runId !== runId || run.status !== "running") return run;
+        appended = true;
+        return { ...run, briefs: [...(run.briefs ?? []), brief].slice(-100) };
+      }),
+    teamRunSessions.get(runId),
+  );
+  return appended ? brief : undefined;
+}
+
+const MAX_TEAM_TASKS = 200;
+
+function taskIsBlocked(task: TeamTask, tasks: readonly TeamTask[]): boolean {
+  if (task.status === "completed") return false;
+  return task.dependsOn.some(
+    (dependencyId) =>
+      tasks.find((candidate) => candidate.taskId === dependencyId)?.status !==
+      "completed",
+  );
+}
+
+function taskView(task: TeamTask, tasks: readonly TeamTask[]): TeamTaskView {
+  return {
+    ...task,
+    dependsOn: [...task.dependsOn],
+    blocked: taskIsBlocked(task, tasks),
+  };
+}
+
+export function listTeamTasks(runId: string): TeamTaskView[] {
+  const run = currentRun();
+  if (!run || run.runId !== runId || run.status !== "running") return [];
+  const tasks = run.tasks ?? [];
+  return tasks.map((task) => taskView(task, tasks));
+}
+
+export function getTeamTask(
+  runId: string,
+  taskId: string,
+): TeamTaskView | undefined {
+  return listTeamTasks(runId).find((task) => task.taskId === taskId);
+}
+
+export function createTeamTask(
+  runId: string,
+  input: {
+    taskId?: string;
+    subject: string;
+    description?: string;
+    dependsOn?: string[];
+  },
+): TeamTaskView | undefined {
+  const subject = input.subject.trim().slice(0, 500);
+  if (!subject) return undefined;
+  const dependsOn = [...new Set(input.dependsOn ?? [])].slice(0, 50);
+  let created: TeamTaskView | undefined;
+  mutateTeamRuns(
+    (runs) =>
+      runs.map((run) => {
+        if (
+          run.runId !== runId ||
+          run.status !== "running" ||
+          (run.tasks?.length ?? 0) >= MAX_TEAM_TASKS
+        ) {
+          return run;
+        }
+        const tasks = run.tasks ?? [];
+        const taskIds = new Set(tasks.map((task) => task.taskId));
+        if (
+          (input.taskId && taskIds.has(input.taskId)) ||
+          dependsOn.some((dependencyId) => !taskIds.has(dependencyId))
+        ) {
+          return run;
+        }
+        const now = new Date().toISOString();
+        const task: TeamTask = {
+          taskId: input.taskId ?? `task-${uuidv4().slice(0, 8)}`,
+          subject,
+          ...(input.description?.trim()
+            ? { description: input.description.trim().slice(0, 4_000) }
+            : {}),
+          status: "pending",
+          dependsOn,
+          createdAt: now,
+          updatedAt: now,
+        };
+        const nextTasks = [...tasks, task];
+        created = taskView(task, nextTasks);
+        return { ...run, tasks: nextTasks };
+      }),
+    teamRunSessions.get(runId),
+  );
+  return created;
+}
+
+export function claimTeamTask(
+  runId: string,
+  taskId: string,
+  memberName: string,
+): TeamTaskView | undefined {
+  const member = memberName.trim();
+  if (!member) return undefined;
+  let claimed: TeamTaskView | undefined;
+  mutateTeamRuns(
+    (runs) =>
+      runs.map((run) => {
+        if (
+          run.runId !== runId ||
+          run.status !== "running" ||
+          !run.members.some((candidate) => candidate.name === member)
+        ) {
+          return run;
+        }
+        const tasks = run.tasks ?? [];
+        const task = tasks.find((candidate) => candidate.taskId === taskId);
+        if (
+          !task ||
+          task.status === "completed" ||
+          (task.status === "in_progress" && task.owner !== member) ||
+          taskIsBlocked(task, tasks)
+        ) {
+          return run;
+        }
+        const updated: TeamTask = {
+          ...task,
+          status: "in_progress",
+          owner: member,
+          updatedAt: new Date().toISOString(),
+        };
+        claimed = taskView(updated, tasks);
+        return {
+          ...run,
+          tasks: tasks.map((candidate) =>
+            candidate.taskId === taskId ? updated : candidate,
+          ),
+        };
+      }),
+    teamRunSessions.get(runId),
+  );
+  return claimed;
+}
+
+export function completeTeamTask(
+  runId: string,
+  taskId: string,
+  memberName?: string,
+): TeamTaskView | undefined {
+  const member = memberName?.trim();
+  let completed: TeamTaskView | undefined;
+  mutateTeamRuns(
+    (runs) =>
+      runs.map((run) => {
+        if (run.runId !== runId || run.status !== "running") return run;
+        const tasks = run.tasks ?? [];
+        const task = tasks.find((candidate) => candidate.taskId === taskId);
+        if (
+          !task ||
+          task.status === "completed" ||
+          (member && task.owner !== member) ||
+          taskIsBlocked(task, tasks)
+        ) {
+          return run;
+        }
+        const now = new Date().toISOString();
+        const updated: TeamTask = {
+          ...task,
+          status: "completed",
+          ...(member ? { owner: member } : {}),
+          completedAt: now,
+          updatedAt: now,
+        };
+        completed = taskView(updated, tasks);
+        return {
+          ...run,
+          tasks: tasks.map((candidate) =>
+            candidate.taskId === taskId ? updated : candidate,
+          ),
+        };
+      }),
+    teamRunSessions.get(runId),
+  );
+  return completed;
 }
 
 /**
@@ -1132,7 +1387,11 @@ export function beginTeamRun(options: BeginTeamRunOptions): TeamRunRecord {
     rememberTeamWorkflowGraph(run.runId, options.workflowGraph);
   }
 
-  mutateTeamRuns((runs) => [...runs, run]);
+  const sessionId =
+    teamRunScope.getStore()?.sessionId ??
+    SessionManager.getInstance().getCurrentSession().sessionId;
+  mutateTeamRuns((runs) => [...runs, run], sessionId);
+  teamRunSessions.set(run.runId, sessionId);
   currentTeamRunId = run.runId;
   return run;
 }
@@ -1143,18 +1402,32 @@ export function getSessionTeamRuns(): TeamRunRecord[] {
   return runs.map((run) => ({
     ...run,
     members: run.members.map((member) => ({ ...member })),
+    ...(run.briefs
+      ? { briefs: run.briefs.map((brief) => ({ ...brief })) }
+      : {}),
+    ...(run.tasks
+      ? {
+          tasks: run.tasks.map((task) => ({
+            ...task,
+            dependsOn: [...task.dependsOn],
+          })),
+        }
+      : {}),
   }));
 }
 
 export function getCurrentTeamRunId(): string | undefined {
-  return currentTeamRunId;
+  return teamRunScope.getStore()?.runId ?? currentTeamRunId;
 }
 
 function currentRun(): TeamRunRecord | undefined {
-  if (!currentTeamRunId) return undefined;
-  return SessionManager.getInstance()
-    .getCurrentSession()
-    .teamRuns?.find((run) => run.runId === currentTeamRunId);
+  const runId = getCurrentTeamRunId();
+  if (!runId) return undefined;
+  const scope = teamRunScope.getStore();
+  const session = scope
+    ? loadSessionById(scope.sessionId)
+    : SessionManager.getInstance().getCurrentSession();
+  return session?.teamRuns?.find((run) => run.runId === runId);
 }
 
 /**
@@ -1177,22 +1450,24 @@ export function startTeamMemberRun(
   memberName: string,
   model?: string,
 ): void {
-  mutateTeamRuns((runs) =>
-    runs.map((run) => {
-      if (run.runId !== runId || run.status !== "running") return run;
-      return {
-        ...run,
-        members: run.members.map((member) => {
-          if (member.name !== memberName) return member;
-          return {
-            name: member.name,
-            ...(model ? { model } : {}),
-            status: "running" as TeamMemberRunStatus,
-            startedAt: new Date().toISOString(),
-          };
-        }),
-      };
-    }),
+  mutateTeamRuns(
+    (runs) =>
+      runs.map((run) => {
+        if (run.runId !== runId || run.status !== "running") return run;
+        return {
+          ...run,
+          members: run.members.map((member) => {
+            if (member.name !== memberName) return member;
+            return {
+              name: member.name,
+              ...(model ? { model } : {}),
+              status: "running" as TeamMemberRunStatus,
+              startedAt: new Date().toISOString(),
+            };
+          }),
+        };
+      }),
+    teamRunSessions.get(runId),
   );
 }
 
@@ -1215,39 +1490,41 @@ export function finishTeamMemberRun(
     report?: string;
   },
 ): void {
-  mutateTeamRuns((runs) =>
-    runs.map((run) => {
-      if (run.runId !== runId || run.status !== "running") return run;
-      return {
-        ...run,
-        members: run.members.map((member) => {
-          if (member.name !== memberName) return member;
-          const finished: TeamRunMemberRecord = {
-            ...member,
-            status: (outcome.cancelled
-              ? "cancelled"
-              : outcome.success
-                ? "completed"
-                : "failed") as TeamMemberRunStatus,
-            finishedAt: new Date().toISOString(),
-          };
-          if (outcome.subagentSessionId) {
-            finished.subagentSessionId = outcome.subagentSessionId;
-          }
-          if (outcome.success && outcome.report !== undefined) {
-            finished.report = outcome.report;
-          } else {
-            delete finished.report;
-          }
-          if (!outcome.success && outcome.error) {
-            finished.error = outcome.error;
-          } else {
-            delete finished.error;
-          }
-          return finished;
-        }),
-      };
-    }),
+  mutateTeamRuns(
+    (runs) =>
+      runs.map((run) => {
+        if (run.runId !== runId || run.status !== "running") return run;
+        return {
+          ...run,
+          members: run.members.map((member) => {
+            if (member.name !== memberName) return member;
+            const finished: TeamRunMemberRecord = {
+              ...member,
+              status: (outcome.cancelled
+                ? "cancelled"
+                : outcome.success
+                  ? "completed"
+                  : "failed") as TeamMemberRunStatus,
+              finishedAt: new Date().toISOString(),
+            };
+            if (outcome.subagentSessionId) {
+              finished.subagentSessionId = outcome.subagentSessionId;
+            }
+            if (outcome.success && outcome.report !== undefined) {
+              finished.report = outcome.report;
+            } else {
+              delete finished.report;
+            }
+            if (!outcome.success && outcome.error) {
+              finished.error = outcome.error;
+            } else {
+              delete finished.error;
+            }
+            return finished;
+          }),
+        };
+      }),
+    teamRunSessions.get(runId),
   );
 }
 
@@ -1256,9 +1533,12 @@ export function finishTeamMemberRun(
  * leave the ledger claiming the run is still active.
  */
 export function finishTeamRun(runId: string, status: TeamRunStatus): void {
-  mutateTeamRuns((runs) =>
-    runs.map((run) => (run.runId === runId ? { ...run, status } : run)),
+  mutateTeamRuns(
+    (runs) =>
+      runs.map((run) => (run.runId === runId ? { ...run, status } : run)),
+    teamRunSessions.get(runId),
   );
+  teamRunSessions.delete(runId);
   if (currentTeamRunId === runId) {
     currentTeamRunId = undefined;
   }
@@ -1267,7 +1547,11 @@ export function finishTeamRun(runId: string, status: TeamRunStatus): void {
 /** Test and /clear seam: forget the ledger and any in-flight run id. */
 export function clearSessionTeamRuns(): void {
   currentTeamRunId = undefined;
-  mutateTeamRuns(() => []);
+  const sessionId = SessionManager.getInstance().getCurrentSession().sessionId;
+  for (const [runId, ownerSessionId] of teamRunSessions) {
+    if (ownerSessionId === sessionId) teamRunSessions.delete(runId);
+  }
+  mutateTeamRuns(() => [], sessionId);
 }
 
 /**
@@ -1276,10 +1560,13 @@ export function clearSessionTeamRuns(): void {
  * and its unfinished members as failed, so a resumed session does not keep
  * reporting a team at work that no longer exists.
  */
-function settleStaleTeamRuns(runs: TeamRunRecord[]): TeamRunRecord[] {
+function settleStaleTeamRuns(
+  runs: TeamRunRecord[],
+  activeRunId?: string,
+): TeamRunRecord[] {
   let settled = false;
   const normalized = runs.map((run) => {
-    if (run.status !== "running") return run;
+    if (run.status !== "running" || run.runId === activeRunId) return run;
     settled = true;
     const finishedAt = new Date().toISOString();
     return {
@@ -1415,6 +1702,7 @@ export function saveSubagentSession(options: {
       delegationDepthOf({
         delegationDepth: getCurrentSession().delegationDepth,
       }) + 1,
+    pendingSubagentMessages: [],
     usage: {
       totalCost: 0,
       promptTokens: 0,
@@ -1474,6 +1762,8 @@ export function updateSubagentSession(options: {
   notice?: string;
   /** Use a measured usage; otherwise the transcript's reported usage is summed. */
   usage?: SessionUsage;
+  /** Replace the durable parent-message inbox for this child. */
+  pendingMessages?: string[];
 }): Session | null {
   const child = loadSessionById(options.sessionId);
   if (!child) {
@@ -1497,6 +1787,9 @@ export function updateSubagentSession(options: {
   }
   child.history = history;
   child.usage = options.usage ?? usageFromChildHistory(history);
+  if (options.pendingMessages !== undefined) {
+    child.pendingSubagentMessages = [...options.pendingMessages];
+  }
   try {
     sessionStore.sync(getSessionPersistenceSnapshot(child));
   } catch (error) {

@@ -23,6 +23,7 @@ export type NavigationScreen =
   | "update" // Update selector
   | "edit" // Edit message selector
   | "jobs" // Background Jobs selector
+  | "teamTasks" // Shared task list for the active team run
   | "export" // Export session selector
   | "theme" // Theme picker with live preview
   | "palette"; // Ctrl+P command palette

@@ -3,6 +3,8 @@ import * as path from "path";
 
 import { writeFileAtomically } from "core/util/atomicWrite.js";
 
+import { workspaceRoot } from "../utils/workspaceScope.js";
+
 /**
  * A file operation the ACP editor owns. When one is installed, reads see the
  * editor's unsaved buffer and writes update it, instead of the last saved copy
@@ -34,7 +36,7 @@ export interface WorkspaceRead {
 export async function readWorkspaceTextFile(
   filePath: string,
 ): Promise<WorkspaceRead> {
-  const absolute = path.resolve(filePath);
+  const absolute = path.resolve(workspaceRoot(), filePath);
   if (active) {
     try {
       return {
@@ -85,7 +87,7 @@ export async function writeWorkspaceTextFile(
   content: string,
   options: { createParent?: boolean } = {},
 ): Promise<WorkspaceWrite> {
-  const absolute = path.resolve(filePath);
+  const absolute = path.resolve(workspaceRoot(), filePath);
   if (active) {
     try {
       await active.writeTextFile(absolute, content);

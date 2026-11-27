@@ -1,3 +1,5 @@
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
+
 import { isLargeWorkspace, localRepoMap } from "./repoMap.js";
 
 /**
@@ -29,14 +31,14 @@ export function forgetExplorationNote(): void {
 
 /** The CLI serves one workspace per process; a resumed session starts a process. */
 function noteScope(): string {
-  return process.cwd();
+  return currentWorkspaceRoot();
 }
 
 export function peekExplorationNote(): string | undefined {
   if (injectedScopes.has(noteScope())) {
     return undefined;
   }
-  const root = process.cwd();
+  const root = currentWorkspaceRoot();
   if (!isLarge(root)) {
     return undefined;
   }

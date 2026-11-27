@@ -26,6 +26,7 @@ export interface UseChatProps {
   onShowModelSelector?: () => void;
   onShowSessionSelector?: () => void;
   onShowSubagentsSelector?: () => void;
+  onShowTeamTasksSelector?: () => void;
   onLoadSession?: (sessionId: string) => void | Promise<void>;
   onShowJobsSelector?: () => void;
   onShowExportSelector?: () => void;

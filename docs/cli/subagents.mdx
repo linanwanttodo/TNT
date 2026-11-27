@@ -3,13 +3,11 @@ title: "Subagents"
 description: "Delegate a task to a child agent that runs on the same engine."
 ---
 
-A subagent runs a task in its own session while the parent keeps working. It uses
-the same engine, the same models and the same permission modes as the parent.
-
-<Info>
-The Subagent tool is behind the `--beta-subagent-tool` flag while the delegation
-surface settles.
-</Info>
+A subagent runs a task in its own persisted session while the parent keeps
+working. It uses the same engine and models, with a permission set narrowed from
+the parent. `Subagent` returns a `run_id` and `session_id` immediately by default;
+pass `run_in_background: false` when the caller needs the final report before it
+continues.
 
 ## Built-in roles
 
@@ -47,9 +45,53 @@ lists the sessions delegated from the current one.
 /back
 ```
 
-returns to the parent session. Delegated transcripts open read only: the child
-session can be inspected, but edits happen in the session that owns the work, so
-two agents cannot rewrite the same conversation.
+returns to the parent session. The transcript is inspectable, and the parent can
+continue the same child with `Subagent.session_id` or `SendMessage`.
+
+## Background controls
+
+- `TaskOutput` reads a run's status and final report.
+- `SendMessage` steers a running child, resumes a finished child, or pauses a
+  child that needs parent input.
+- `TaskStop` stops one child without stopping the parent turn, records a
+  cancellation result and emits the same completion notification as a natural finish.
+
+## Markdown agents
+
+Define an agent in `.tnt/agents/<name>.md`, `.claude/agents/<name>.md`, or
+`~/.tnt/agents/<name>.md`. The first matching name wins, in that order. YAML
+frontmatter configures `model`, `tools`, `disallowedTools`, `permissionMode`,
+`maxTurns`, `skills`, `background` and `isolation`; the Markdown body is the
+agent's system prompt. `maxTurns` limits model/tool rounds, `tools` is an
+allowlist, `skills` are preloaded into the child context, and `background: true`
+makes dispatch asynchronous.
+
+Set `isolation: worktree` on the agent, or pass `isolation: "worktree"` to
+`Subagent`, to run file, search, shell and language-server tools against a
+temporary detached git worktree. The main checkout's uncommitted changes are
+not copied. The worktree is removed when the run ends, including on failure;
+use it for isolated inspection or experiments, not as a way to apply changes to
+the main checkout. Resuming a child starts a fresh isolated worktree.
+
+## Teams
+
+`dev` and `sec` ship by default. `market` adds a read-only research team for
+stocks and funds: portfolio management, macro, fundamentals, technicals,
+sentiment, risk, execution planning and compliance. It produces sourced research
+and paper-trade or approval drafts; it does not place orders, move funds, store
+broker credentials or promise returns.
+
+Team runs share a persisted task list. `TaskCreate`, `TaskGet`, `TaskList` and
+`TaskUpdate` are available to the lead and members, including a member at the
+delegation-depth limit. A task can depend on existing task ids; blocked tasks
+cannot be claimed, and a claim has one owner. `TaskCreated`, `TaskCompleted`
+and `TeammateIdle` hooks expose those lifecycle points to project automation.
+A blocked `TeammateIdle` hook resumes the same member with its feedback and
+settles the member ledger only once.
+
+Run `/team tasks` for an interactive task list. Use Up/Down and Enter to inspect
+a task, Left/Right to choose a member, Space to claim it, `c` to complete it,
+`r` to refresh, and Esc to return.
 
 ## Cache behaviour
 

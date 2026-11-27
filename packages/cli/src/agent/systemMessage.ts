@@ -25,6 +25,7 @@ import {
 import { getTeam } from "../team/loader.js";
 import { logger } from "../utils/logger.js";
 import { isMemoryEnabled } from "../utils/memoryState.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { loadInstructionFile } from "./instructionIncludes.js";
 import {
@@ -106,7 +107,7 @@ function getGitStatus(): string {
       if (isGitRepo()) {
         const result = execFileSync("git", ["status", "--porcelain"], {
           encoding: "utf-8",
-          cwd: process.cwd(),
+          cwd: currentWorkspaceRoot(),
         });
         gitStatusSnapshot = formatGitStatus(result);
       } else {
@@ -233,7 +234,7 @@ export function environmentSection(): string {
   return `
 Here is useful information about the environment you are running in:
 <env>
-Working directory: ${process.cwd()}
+Working directory: ${currentWorkspaceRoot()}
 Is directory a git repo: ${isGitRepo()}
 Platform: ${process.platform}
 Today's date: ${sessionDate()}
@@ -335,7 +336,7 @@ function memoryLayers(): RuleSource[] {
       text: `Global memory from TNT.md:\n${loadInstructionFile(globalMemory)}`,
     });
   }
-  const projectMemory = path.join(process.cwd(), ".tnt", "TNT.md");
+  const projectMemory = path.join(currentWorkspaceRoot(), ".tnt", "TNT.md");
   if (fs.existsSync(projectMemory)) {
     layers.push({
       id: "userRules:memory:project",
@@ -361,7 +362,7 @@ function memoryLayers(): RuleSource[] {
 function activeTeamLeadBlock(): string | undefined {
   const activeTeamName = getSessionActiveTeam();
   const activeTeam = activeTeamName
-    ? getTeam(activeTeamName, process.cwd())
+    ? getTeam(activeTeamName, currentWorkspaceRoot())
     : undefined;
   if (!activeTeam) return undefined;
 
@@ -414,14 +415,14 @@ async function collectRuleMaterial(
   try {
     // Root to working directory, one file per directory: the override wins,
     // then the names this CLI has always read.
-    for (const doc of loadProjectDocs(process.cwd())) {
+    for (const doc of loadProjectDocs(currentWorkspaceRoot())) {
       sources.push({ id: `userRules:agent:${doc.label}`, text: doc.text });
     }
 
     // The CLI does not go through core's config loader, so the workspace's
     // `.tntrules` dotfile is read here, once, at the same level as the other
     // project rules.
-    const tntRulesPath = path.join(process.cwd(), ".tntrules");
+    const tntRulesPath = path.join(currentWorkspaceRoot(), ".tntrules");
     if (fs.existsSync(tntRulesPath)) {
       sources.push({
         id: "userRules:tntrules",
@@ -429,7 +430,7 @@ async function collectRuleMaterial(
       });
     }
 
-    const localPath = path.join(process.cwd(), "AGENTS.local.md");
+    const localPath = path.join(currentWorkspaceRoot(), "AGENTS.local.md");
     if (fs.existsSync(localPath)) {
       sources.push({
         id: "userRules:agent-local",
@@ -478,7 +479,7 @@ async function collectRuleMaterial(
     if (existingRulesSet.has(rule.rule)) return;
     existingRulesSet.add(rule.rule);
     const relative = rule.sourceFile
-      ? path.relative(process.cwd(), rule.sourceFile)
+      ? path.relative(currentWorkspaceRoot(), rule.sourceFile)
       : "";
     let id = `userRules:rule:${relative || rule.name || index}`;
     // Two sources must never share an id: the planner would treat them as one

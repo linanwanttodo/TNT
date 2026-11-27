@@ -3,6 +3,7 @@ import * as path from "path";
 import { getCurrentSessionId } from "../session/index.js";
 
 import { isDestructiveCall } from "./destructiveCommands.js";
+import { workspaceRoot } from "./workspacePath.js";
 
 // An approval that is kept for the session sits between "once" and "always": the
 // human answers once and the same call is not asked again, but nothing is written
@@ -54,7 +55,7 @@ export function sessionApprovalKey(
     // rides in the key because a relative path in the line resolves
     // differently per directory - `rm notes.txt` from two roots are two
     // permissions, not one.
-    return `Bash(${process.cwd()}::${command.replace(/\s+/g, " ").trim()})`;
+    return `Bash(${workspaceRoot()}::${command.replace(/\s+/g, " ").trim()})`;
   }
 
   if (FILE_SCOPED_TOOLS.has(toolName)) {
@@ -65,7 +66,7 @@ export function sessionApprovalKey(
           ? args.file_path
           : "";
     if (target.trim() === "") return undefined;
-    return `${toolName}(${path.resolve(target)})`;
+    return `${toolName}(${path.resolve(workspaceRoot(), target)})`;
   }
 
   return undefined;

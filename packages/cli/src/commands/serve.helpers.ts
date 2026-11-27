@@ -465,7 +465,7 @@ export function registerSseEventRoute(app: Express, state: ServerState): void {
     const unsubscribe = subscribeAgentEvents((event) => {
       res.write(`event: ${event.type}\n`);
       res.write(`data: ${JSON.stringify(event)}\n\n`);
-    });
+    }, state.session.sessionId);
 
     const keepAlive = setInterval(() => {
       res.write(": keep-alive\n\n");

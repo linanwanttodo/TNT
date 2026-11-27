@@ -326,14 +326,32 @@ data` section (mask values rather than quoting them), a temp-directory exception
   the AstSearch half only lands in a run with ripgrep on the machine, whose absence
   bills the same bytes as before.
 
+- **Team changelog, 2026-11-27:** `TaskCreate`, `TaskGet`, `TaskList` and
+  `TaskUpdate` add a session-persisted shared task list with dependencies and
+  exclusive in-process claims. `TaskCreated`, `TaskCompleted` and `TeammateIdle`
+  hooks now fire from the task tools and member lifecycle. The four tool
+  definitions add 1228 characters, moving the digest to
+  `4fcdea23a86d6067`/40747 over 50 tools. TaskStop now records a cancellation
+  result and emits both a terminal subagent event and a completion notice.
+
+- **Prefix changelog, 2026-11-26:** `TaskOutput`, `TaskStop`, `SendMessage` and
+  child-session resume arguments joined the delegation surface. Three new tool
+  definitions plus schema changes add 1715 characters, moving the digest to
+  `4fcdea23a86d6067`/40747 over 50 tools. Delegating sessions cold-start once;
+  sessions that never delegate keep their previous prefix.
+
+- **Prefix changelog, 2026-11-27:** `Subagent` gained `isolation: "worktree"`
+  for temporary detached-worktree execution. The schema adds 169 characters,
+  moving the digest to `4fcdea23a86d6067`/40747 over the same 50 tools.
+
 - The built-in tool list is billed inside that prefix too, and its current shape is
-  `40dd3dbe369d1946` over 43 tools and 37635 characters (name + description + parameter schema, in
+  `4fcdea23a86d6067` over 50 tools and 40747 characters (name + description + parameter schema, in
   `tools/stableOrder.ts` order). That shape is a property of the source only: the Bash
   description used to interpolate `process.cwd()`, so every machine billed a different
   prefix - a runner disagreed with a laptop by the length of its path, and moving the
   project into another directory cold-started the cache for every session. The working
   directory is still stated, once, in the environment block.
-  All 43 are in `ALL_BUILT_IN_TOOLS`: the four the request
+  All 50 are in `ALL_BUILT_IN_TOOLS`: the four the request
   assembles from `src/tools/index.tsx`'s own arrays (`CheckBackgroundJob`, `EnterPlanMode`,
   `ExitPlanMode`, `Glob`) joined the registry on 2026-10-20, so the digest and the
   default-deny name list now read the same set. `ToolSearch` joined on 2026-10-22 and is
@@ -455,8 +473,9 @@ lives beside:
 - `src/hooks/hookEventCoverage.test.ts` - every Claude-Code hook event the types declare is
   fired by production code. The four it used to excuse are gone: `WorktreeCreate` and
   `WorktreeRemove` fire from review's worktree lifecycle (2026-10-20), and
-  `TeammateIdle`/`TaskCompleted` were deleted with the team and task concepts they
-  described, along with the "configured but never fires" warning that only they used.
+  `TeammateIdle`/`TaskCompleted` fire again from the team member and shared-task
+  lifecycles, alongside `TaskCreated`; the "configured but never fires" warning has
+  no remaining exceptions.
 - `src/permissions/policyNameCoverage.test.ts` - no tool has a policy that the
   default-deny sweep cannot see. The four names it used to allow were added to the
   sweep on 2026-10-20, so the allowance is empty and a fifth is still refused.

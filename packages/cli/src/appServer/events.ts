@@ -746,10 +746,14 @@ function parentTurnId(state: TranslationState): string {
 function runningSubagent(
   state: TranslationState,
   agentName: string,
+  childSessionId?: string,
 ): SubagentLifecycle | undefined {
   return state.subagents.find(
     (candidate) =>
-      candidate.agentName === agentName && candidate.status === "running",
+      candidate.status === "running" &&
+      (childSessionId
+        ? candidate.childSessionId === childSessionId
+        : candidate.agentName === agentName),
   );
 }
 
@@ -879,7 +883,7 @@ function reportSubagent(
   state: TranslationState,
   event: Extract<AgentEvent, { type: "subagent.reported" }>,
 ): ZCodeSessionEvent[] {
-  const run = runningSubagent(state, event.agentName);
+  const run = runningSubagent(state, event.agentName, event.childSessionId);
   if (!run) {
     logger.debug("AppServer: dropped a report with no matching subagent", {
       sessionId: event.sessionId,
@@ -904,12 +908,33 @@ function reportSubagent(
   ];
 }
 
+function noteSubagentMessage(
+  state: TranslationState,
+  event: Extract<AgentEvent, { type: "subagent.ping" | "subagent.steered" }>,
+): ZCodeSessionEvent[] {
+  const run = runningSubagent(state, event.agentName, event.childSessionId);
+  if (!run) return [];
+  run.reported = event.content;
+  return [
+    stamp(
+      state,
+      "session.updated",
+      {
+        sessionId: state.sessionId,
+        subagent: subagentWireEvent(run, "reported"),
+      },
+      event.timestamp,
+      run.turnId,
+    ),
+  ];
+}
+
 function finishSubagent(
   state: TranslationState,
   event: Extract<AgentEvent, { type: "subagent.finished" }>,
 ): ZCodeSessionEvent[] {
   observeGoalVerdict(state, event.verdict, event.timestamp);
-  const run = runningSubagent(state, event.agentName);
+  const run = runningSubagent(state, event.agentName, event.childSessionId);
   if (!run) {
     logger.debug("AppServer: dropped a finish with no matching subagent", {
       sessionId: event.sessionId,
@@ -1170,6 +1195,9 @@ export function translateAgentEvent(
       return startSubagent(state, event);
     case "subagent.reported":
       return reportSubagent(state, event);
+    case "subagent.ping":
+    case "subagent.steered":
+      return noteSubagentMessage(state, event);
     case "subagent.finished":
       return finishSubagent(state, event);
     default:

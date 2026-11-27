@@ -1,8 +1,19 @@
 import { EventEmitter } from "events";
 
+import { ROOT_REALM, realmTree, type RealmId } from "../realm/realmTree.js";
+import { currentRealmId } from "../realm/scope.js";
+import { serviceTable } from "../realm/serviceTable.js";
 import { logger } from "../utils/logger.js";
 
 import { type ServiceResult, type ServiceState } from "./types.js";
+
+type ServiceListener = (...args: any[]) => void;
+
+interface ScopedListenerRegistration {
+  event: string | symbol;
+  realm: RealmId;
+  wrapper: ServiceListener;
+}
 
 /**
  * Central service container that manages service lifecycle and dependencies
@@ -12,11 +23,82 @@ export class ServiceContainer extends EventEmitter {
   private services = new Map<string, ServiceResult<any>>();
   private factories = new Map<string, () => Promise<any>>();
   private dependencies = new Map<string, string[]>();
+  private scopedFactories = new Map<number, Map<string, () => Promise<any>>>();
+  private scopedDependencies = new Map<number, Map<string, string[]>>();
+  private scopedListeners = new Map<
+    ServiceListener,
+    ScopedListenerRegistration[]
+  >();
 
   constructor() {
     super();
     // Increase max listeners to handle multiple UI components
     this.setMaxListeners(50);
+  }
+
+  override on(event: string | symbol, listener: ServiceListener): this {
+    return this.addScopedListener(event, listener, false);
+  }
+
+  override addListener(
+    event: string | symbol,
+    listener: ServiceListener,
+  ): this {
+    return this.addScopedListener(event, listener, false);
+  }
+
+  override once(event: string | symbol, listener: ServiceListener): this {
+    return this.addScopedListener(event, listener, true);
+  }
+
+  override off(event: string | symbol, listener: ServiceListener): this {
+    const realm = currentRealmId();
+    const registrations = this.scopedListeners.get(listener);
+    const registration = registrations
+      ?.slice()
+      .reverse()
+      .find((entry) => entry.event === event && entry.realm === realm);
+    if (!registration) return this;
+    super.off(event, registration.wrapper);
+    registrations!.splice(registrations!.indexOf(registration), 1);
+    if (registrations!.length === 0) {
+      this.scopedListeners.delete(listener);
+    }
+    return this;
+  }
+
+  override removeListener(
+    event: string | symbol,
+    listener: ServiceListener,
+  ): this {
+    return this.off(event, listener);
+  }
+
+  private addScopedListener(
+    event: string | symbol,
+    listener: ServiceListener,
+    once: boolean,
+  ): this {
+    const realm = currentRealmId();
+    const registrations = this.scopedListeners.get(listener) ?? [];
+    const wrapper: ServiceListener = (...args) => {
+      if (!realmTree.visibleFrom(currentRealmId(), realm)) return;
+      if (once) {
+        super.off(event, wrapper);
+        registrations.splice(
+          registrations.findIndex((entry) => entry.wrapper === wrapper),
+          1,
+        );
+        if (registrations.length === 0) {
+          this.scopedListeners.delete(listener);
+        }
+      }
+      listener(...args);
+    };
+    registrations.push({ event, realm, wrapper });
+    this.scopedListeners.set(listener, registrations);
+    super.on(event, wrapper);
+    return this;
   }
 
   /**
@@ -27,17 +109,30 @@ export class ServiceContainer extends EventEmitter {
     factory: () => Promise<T>,
     deps: string[] = [],
   ): void {
-    this.factories.set(serviceName, factory);
-    this.dependencies.set(serviceName, deps);
-
-    // Only initialize with idle state if the service doesn't already exist
-    // This prevents overwriting services that were registered with registerValue
-    if (!this.services.has(serviceName)) {
-      this.services.set(serviceName, {
-        value: null,
-        state: "idle",
-        error: null,
-      });
+    const realm = currentRealmId();
+    if (realm === ROOT_REALM) {
+      this.factories.set(serviceName, factory);
+      this.dependencies.set(serviceName, deps);
+      if (!this.services.has(serviceName)) {
+        this.services.set(serviceName, {
+          value: null,
+          state: "idle",
+          error: null,
+        });
+      }
+    } else {
+      let factories = this.scopedFactories.get(realm);
+      if (!factories) {
+        factories = new Map();
+        this.scopedFactories.set(realm, factories);
+      }
+      let dependencies = this.scopedDependencies.get(realm);
+      if (!dependencies) {
+        dependencies = new Map();
+        this.scopedDependencies.set(realm, dependencies);
+      }
+      factories.set(serviceName, factory);
+      dependencies.set(serviceName, deps);
     }
 
     logger.debug(`Registered service: ${serviceName}`, { dependencies: deps });
@@ -48,17 +143,7 @@ export class ServiceContainer extends EventEmitter {
    * Used when the service is already initialized
    */
   registerValue<T>(serviceName: string, value: T): void {
-    // Set the service as ready with the provided value
-    this.services.set(serviceName, {
-      value,
-      state: "ready",
-      error: null,
-      lastUpdated: new Date(),
-    });
-
-    // Emit ready event
-    this.emit(`${serviceName}:ready`, value);
-
+    this.setServiceValue(serviceName, value);
     logger.debug(`Registered service with immediate value: ${serviceName}`, {
       state: "ready",
       hasValue: value !== null,
@@ -71,23 +156,29 @@ export class ServiceContainer extends EventEmitter {
    * "not found" warning `getSync` emits for a name nothing registered.
    */
   has(serviceName: string): boolean {
-    return this.services.has(serviceName) || this.factories.has(serviceName);
+    const realm = currentRealmId();
+    return Boolean(
+      this.findResult(serviceName) ||
+      this.scopedFactories.get(realm)?.has(serviceName) ||
+      this.factories.has(serviceName),
+    );
   }
 
   /**
    * Get current service result (synchronous)
    */
   getSync<T>(serviceName: string): ServiceResult<T> {
-    const result = this.services.get(serviceName);
-    if (!result) {
-      logger.warn(`Service not found: ${serviceName}`);
-      return {
-        value: null,
-        state: "error",
-        error: new Error(`Service '${serviceName}' not registered`),
-      };
+    const result = this.findResult(serviceName);
+    if (result) return result as ServiceResult<T>;
+    if (this.scopedFactories.get(currentRealmId())?.has(serviceName)) {
+      return { value: null, state: "idle", error: null };
     }
-    return result;
+    logger.warn(`Service not found: ${serviceName}`);
+    return {
+      value: null,
+      state: "error",
+      error: new Error(`Service '${serviceName}' not registered`),
+    };
   }
 
   /**
@@ -101,7 +192,36 @@ export class ServiceContainer extends EventEmitter {
     }
 
     if (current.state === "loading") {
-      // Wait for loading to complete
+      const realm = currentRealmId();
+      if (realm !== ROOT_REALM) {
+        return new Promise<T>((resolve, reject) => {
+          const cleanup = () =>
+            serviceTable.off(`${serviceName}:provided`, onProvided);
+          const onProvided = (payload: {
+            realm: number;
+            value: ServiceResult<T>;
+          }) => {
+            if (payload.realm !== realm) return;
+            cleanup();
+            if (
+              payload.value.state === "ready" &&
+              payload.value.value !== null
+            ) {
+              resolve(payload.value.value);
+            } else {
+              reject(
+                payload.value.error ??
+                  new Error(`Service '${serviceName}' failed to load`),
+              );
+            }
+          };
+          serviceTable.on(`${serviceName}:provided`, onProvided);
+          const latest = serviceTable.get<ServiceResult<T>>(serviceName, realm);
+          if (latest && latest.state !== "loading") {
+            onProvided({ realm, value: latest });
+          }
+        });
+      }
       return new Promise((resolve, reject) => {
         const onReady = (value: T) => {
           this.off(`${serviceName}:ready`, onReady);
@@ -128,7 +248,10 @@ export class ServiceContainer extends EventEmitter {
    * Load a service, handling dependencies
    */
   async load<T>(serviceName: string): Promise<T> {
-    const factory = this.factories.get(serviceName);
+    const realm = currentRealmId();
+    const factory =
+      this.scopedFactories.get(realm)?.get(serviceName) ??
+      this.factories.get(serviceName);
     if (!factory) {
       const error = new Error(
         `No factory registered for service '${serviceName}'`,
@@ -138,7 +261,7 @@ export class ServiceContainer extends EventEmitter {
     }
 
     // Check if already loading
-    const current = this.services.get(serviceName);
+    const current = this.findResult(serviceName);
     if (current?.state === "loading") {
       return this.get<T>(serviceName);
     }
@@ -148,7 +271,10 @@ export class ServiceContainer extends EventEmitter {
 
     try {
       // Load dependencies first
-      const deps = this.dependencies.get(serviceName) || [];
+      const deps =
+        this.scopedDependencies.get(realm)?.get(serviceName) ??
+        this.dependencies.get(serviceName) ??
+        [];
       await Promise.all(deps.map((dep) => this.load(dep)));
 
       // Load the service
@@ -210,6 +336,11 @@ export class ServiceContainer extends EventEmitter {
 
       // Find direct dependents
       const directDependents = Array.from(this.dependencies.entries())
+        .concat(
+          Array.from(
+            this.scopedDependencies.get(currentRealmId())?.entries() ?? [],
+          ),
+        )
         .filter(([_, deps]) => deps.includes(name))
         .map(([depName, _]) => depName);
 
@@ -234,7 +365,7 @@ export class ServiceContainer extends EventEmitter {
    * Check if service is ready
    */
   isReady(serviceName: string): boolean {
-    const result = this.services.get(serviceName);
+    const result = this.findResult(serviceName);
     return result?.state === "ready" && result.value !== null;
   }
 
@@ -242,7 +373,7 @@ export class ServiceContainer extends EventEmitter {
    * Check if service is loading
    */
   isLoading(serviceName: string): boolean {
-    const result = this.services.get(serviceName);
+    const result = this.findResult(serviceName);
     return result?.state === "loading";
   }
 
@@ -254,7 +385,12 @@ export class ServiceContainer extends EventEmitter {
     logger.debug("Initializing all registered services");
 
     // Get all registered service names
-    const serviceNames = Array.from(this.factories.keys());
+    const serviceNames = [
+      ...new Set([
+        ...this.factories.keys(),
+        ...(this.scopedFactories.get(currentRealmId())?.keys() ?? []),
+      ]),
+    ];
 
     // Load all services in parallel (dependencies will be handled by load())
     await Promise.all(
@@ -286,14 +422,33 @@ export class ServiceContainer extends EventEmitter {
   /**
    * Private helper methods
    */
+  private findResult(serviceName: string): ServiceResult<unknown> | undefined {
+    return (
+      serviceTable.get<ServiceResult<unknown>>(serviceName, currentRealmId()) ??
+      this.services.get(serviceName)
+    );
+  }
+
+  private writeResult(
+    serviceName: string,
+    result: ServiceResult<unknown>,
+  ): void {
+    const realm = currentRealmId();
+    if (realm === ROOT_REALM) {
+      this.services.set(serviceName, result);
+    } else {
+      serviceTable.set(serviceName, realm, result, "ServiceContainer");
+    }
+  }
+
   private setServiceState(serviceName: string, state: ServiceState): void {
-    const current = this.services.get(serviceName) || {
+    const current = this.findResult(serviceName) || {
       value: null,
       state: "idle",
       error: null,
     };
     const updated = { ...current, state, lastUpdated: new Date() };
-    this.services.set(serviceName, updated);
+    this.writeResult(serviceName, updated);
     this.emit(`${serviceName}:${state}`);
   }
 
@@ -305,7 +460,7 @@ export class ServiceContainer extends EventEmitter {
       lastUpdated: new Date(),
     };
 
-    this.services.set(serviceName, result);
+    this.writeResult(serviceName, result);
     this.emit(`${serviceName}:ready`, value);
     this.emit(`${serviceName}:changed`, value);
   }
@@ -318,7 +473,7 @@ export class ServiceContainer extends EventEmitter {
       lastUpdated: new Date(),
     };
 
-    this.services.set(serviceName, result);
+    this.writeResult(serviceName, result);
     this.emit(`${serviceName}:error`, error);
   }
 
@@ -329,7 +484,7 @@ export class ServiceContainer extends EventEmitter {
       error: null,
     };
 
-    this.services.set(serviceName, result);
+    this.writeResult(serviceName, result);
   }
 }
 

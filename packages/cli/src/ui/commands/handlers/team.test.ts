@@ -84,6 +84,12 @@ lead: true
     expect(result.output).toContain("No team active");
   });
 
+  it("opens the interactive task list", () => {
+    expect(handleTeamCommand(["tasks"])).toEqual({
+      openTeamTasksSelector: true,
+    });
+  });
+
   it("activates a team and reports the new state", () => {
     writeMember(projectDir, "dev", "lead.md", LEAD, "lead prompt body");
     invalidateTeamCache();

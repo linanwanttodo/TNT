@@ -6,6 +6,7 @@ import { localPathToUri } from "core/util/pathToUri.js";
 
 import { canonicalPath } from "../utils/canonicalPath.js";
 import { logger } from "../utils/logger.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 /**
  * Whether the config this workspace loads selects the codebase provider.
@@ -43,7 +44,7 @@ export async function selectsCodebaseProvider(
  * skipped warm-up from a running one.
  */
 export async function warmRetrieval(
-  workspaceDir: string = process.cwd(),
+  workspaceDir: string = currentWorkspaceRoot(),
 ): Promise<boolean> {
   if (process.env.TNT_WARM_RETRIEVAL === "0") {
     return false;

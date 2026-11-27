@@ -119,6 +119,90 @@ describe("a delegated read-only session", () => {
     );
   });
 
+  it("applies a denied tool glob over an explicit parent allow", () => {
+    const parent: AgentRunContext = {
+      ...parentContext(),
+      permissions: {
+        policies: [
+          { tool: "mcp__broker__place_order", permission: "allow" },
+          { tool: "WebSearch", permission: "allow" },
+        ],
+      },
+    };
+    const child = createChildContext(parent, {
+      id: "child-1",
+      delegationDepth: 1,
+      systemMessage: "Research only.",
+      deniedTools: ["mcp__*"],
+    });
+
+    expect(
+      checkToolPermission(call("mcp__broker__place_order"), child.permissions)
+        .permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission(call("WebSearch"), child.permissions).permission,
+    ).toBe("allow");
+  });
+
+  it("applies a markdown tool allowlist and keeps messaging available", () => {
+    const child = createChildContext(parentContext(), {
+      id: "child-1",
+      delegationDepth: 1,
+      systemMessage: "Research only.",
+      allowedTools: ["Read", "WebSearch"],
+    });
+
+    expect(
+      checkToolPermission(call("Read"), child.permissions).permission,
+    ).toBe("allow");
+    expect(
+      checkToolPermission(call("WebSearch"), child.permissions).permission,
+    ).toBe("allow");
+    expect(
+      checkToolPermission(call("SendMessage"), child.permissions).permission,
+    ).toBe("allow");
+    expect(
+      checkToolPermission(call("Write"), child.permissions).permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission(call("Bash", { command: "pwd" }), child.permissions)
+        .permission,
+    ).toBe("exclude");
+  });
+
+  it("honors an agent permission mode without changing the parent", () => {
+    const parent = parentContext();
+    const child = createChildContext(parent, {
+      id: "child-1",
+      delegationDepth: 1,
+      systemMessage: "Plan only.",
+      permissionMode: "plan",
+    });
+
+    expect(child.mode).toBe("plan");
+    expect(parent.mode).toBe("default");
+    expect(
+      checkToolPermission(call("Write"), child.permissions).permission,
+    ).toBe("exclude");
+    expect(
+      checkToolPermission(call("Read"), child.permissions).permission,
+    ).toBe("allow");
+  });
+
+  it("carries the runtime realm into the child context", () => {
+    const parent = { ...parentContext(), realmId: 4 };
+    const child = createChildContext(parent, {
+      id: "child-1",
+      delegationDepth: 1,
+      systemMessage: "Child",
+      realmId: 9,
+    });
+
+    expect(child.realmId).toBe(9);
+    expect(parent.realmId).toBe(4);
+  });
+
   it("cannot widen its own policy from inside the session", () => {
     const child = createChildContext(parentContext(), {
       id: "child-1",

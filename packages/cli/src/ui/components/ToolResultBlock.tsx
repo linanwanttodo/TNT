@@ -1,10 +1,9 @@
 import { Box, Text } from "ink";
 import React, { createContext, useContext, type ReactNode } from "react";
 
-import { claudeGlyphs } from "../symbols.js";
 import { useTheme } from "../theme/tokens.js";
 
-const RESULT_GUTTER = `  ${claudeGlyphs().resultGutter} `;
+const RESULT_INDENT = "    ";
 
 /**
  * A result is drawn once behind the gutter. A result rendered inside another
@@ -29,7 +28,7 @@ export function ToolResultBlock({ children }: ToolResultBlockProps) {
     <NestedResult.Provider value={true}>
       <Box flexDirection="row" width="100%">
         <Box flexShrink={0}>
-          <Text color={activeTheme.text.subtle}>{RESULT_GUTTER}</Text>
+          <Text color={activeTheme.text.subtle}>{RESULT_INDENT}</Text>
         </Box>
         <Box flexDirection="column" flexShrink={1} flexGrow={1} minWidth={0}>
           {children}

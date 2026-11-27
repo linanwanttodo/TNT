@@ -12,6 +12,7 @@ import { localPathToUri } from "core/util/pathToUri.js";
 import { canonicalPath } from "../utils/canonicalPath.js";
 import { logger } from "../utils/logger.js";
 import { parseEnvNumber } from "../utils/truncateOutput.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 /** Stat sweeps are cheap, but a tight loop has no business hammering them. */
 const RECONCILE_MIN_INTERVAL_MS = 1_000;
@@ -132,7 +133,7 @@ export class RetrievalService {
   private lastChangeKey: string | null = null;
   private staleRun = 0;
 
-  constructor(workspaceDir: string = process.cwd()) {
+  constructor(workspaceDir: string = currentWorkspaceRoot()) {
     // Core's IDE abstraction speaks file URIs, so the workspace the indexer
     // sees and the directory it tags the index with are both URI-shaped.
     this.workspaceDir = localPathToUri(canonicalPath(workspaceDir));
@@ -498,7 +499,7 @@ const services = new Map<string, RetrievalService>();
 
 /** One index host per workspace for the life of the process. */
 export function getRetrievalService(
-  workspaceDir: string = process.cwd(),
+  workspaceDir: string = currentWorkspaceRoot(),
 ): RetrievalService {
   const key = canonicalPath(workspaceDir);
   let service = services.get(key);

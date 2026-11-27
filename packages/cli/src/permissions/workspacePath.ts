@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 import { resolveWithin } from "../utils/pathGuard.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 /**
  * The workspace a run belongs to. This is the directory the process was started
@@ -10,11 +11,11 @@ import { resolveWithin } from "../utils/pathGuard.js";
  */
 export function workspaceRoot(): string {
   try {
-    return fs.realpathSync(process.cwd());
+    return fs.realpathSync(currentWorkspaceRoot());
   } catch {
     // A deleted working directory has no real path; the string is still the
     // best answer about where the run thinks it is.
-    return process.cwd();
+    return currentWorkspaceRoot();
   }
 }
 
@@ -68,7 +69,9 @@ export function isWithinWorkspace(filePath: unknown, root?: string): boolean {
   if (typeof filePath !== "string" || filePath.trim() === "") {
     return false;
   }
-  const resolved = resolveExistingPrefix(path.resolve(filePath));
+  const resolved = resolveExistingPrefix(
+    path.resolve(root ?? workspaceRoot(), filePath),
+  );
   const roots = root ? [root] : [workspaceRoot(), ...additionalRoots];
   return roots.some(
     (candidate) =>

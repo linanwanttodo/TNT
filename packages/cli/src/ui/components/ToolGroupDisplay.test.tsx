@@ -128,7 +128,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} ▸ $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
   });
 
   it("renders a running call with the blinking dot", () => {
@@ -136,7 +136,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} ▾ $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
   });
 
   it("renders a queued call with the dim dot", () => {
@@ -144,7 +144,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} ▾ $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
     expect(toolDotStyle(state.status, darkTheme).dim).toBe(true);
   });
 
@@ -153,7 +153,7 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} ▸ $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
     expect(toolDotStyle(state.status, darkTheme).dim).toBe(true);
   });
 
@@ -172,9 +172,10 @@ describe("ToolItemDisplay", () => {
     const frame = frameOf(<ToolItemDisplay toolState={state} isFirst={true} />);
 
     const firstLine = nonEmptyLines(frame)[0] ?? "";
-    expect(firstLine.startsWith(`${DOT} ▸ $ echo test`)).toBe(true);
+    expect(firstLine.startsWith(`${DOT} $ echo test`)).toBe(true);
     expect(frame).toContain("command not found");
-    expect(frame).toContain("⎿ command not found");
+    expect(frame).not.toContain("⎿");
+    expect(frame).not.toContain("🔻");
   });
 
   it("draws the old per-state glyphs nowhere", () => {
@@ -188,9 +189,8 @@ describe("ToolItemDisplay", () => {
     }
   });
 
-  it("hangs a result below the call behind exactly one gutter", () => {
+  it("indents a result below the call without a decorative glyph", () => {
     const state = mockToolState({
-      // A failed call keeps its tail, which is what the gutter rows are for.
       status: "errored",
       output: [
         {
@@ -207,14 +207,15 @@ describe("ToolItemDisplay", () => {
       .filter((line) => /line (one|two|three)/.test(line));
 
     expect(resultLines).toHaveLength(3);
-    expect(resultLines.filter((line) => line.includes("⎿"))).toHaveLength(1);
-    expect(resultLines[0]).toMatch(/^ {2}⎿ /);
-    for (const line of resultLines.slice(1)) {
-      expect(line.startsWith("    ")).toBe(true);
-    }
+    expect(resultLines[0]).toMatch(/^ {4}line one/);
+    expect(
+      resultLines.every(
+        (line) => !/[\u23BF\u25BE\u25B8\uD83D\uDD3B]/u.test(line),
+      ),
+    ).toBe(true);
   });
 
-  it("does not repeat the gutter for a nested result", () => {
+  it("does not repeat indentation for a nested result", () => {
     const frame = frameOf(
       <ToolResultBlock>
         <Text>outer result</Text>
@@ -224,7 +225,7 @@ describe("ToolItemDisplay", () => {
       </ToolResultBlock>,
     );
 
-    expect(frame.match(/⎿/g) ?? []).toHaveLength(1);
+    expect(frame).not.toMatch(/[\u23BF\u25BE\u25B8\uD83D\uDD3B]/u);
     expect(frame).toContain("outer result");
     expect(frame).toContain("inner result");
   });
@@ -421,7 +422,7 @@ describe("ToolGroupDisplay", () => {
     expect(frame).toBe("");
   });
 
-  it("renders multiple tool calls in sequence", () => {
+  it("folds multiple finished tool calls into one summary", () => {
     const toolStates: ToolCallState[] = [
       mockToolState({
         toolCallId: "call-1",
@@ -442,8 +443,9 @@ describe("ToolGroupDisplay", () => {
     ];
 
     const frame = frameOf(<ToolGroupDisplay toolStates={toolStates} />);
-    expect(frame).toContain("ReadFile");
-    expect(frame).toContain("WriteFile");
+    expect(frame).toContain("2 calls");
+    expect(frame).not.toContain("ReadFile");
+    expect(frame).not.toContain("WriteFile");
   });
 
   it("aligns every call's text in the same column", () => {
@@ -475,16 +477,16 @@ describe("ToolGroupDisplay", () => {
     const first = lines.find((line) => line.includes("ReadFile")) ?? "";
     const second = lines.find((line) => line.includes("WriteFile")) ?? "";
 
-    expect(first.indexOf("ReadFile")).toBe(4);
-    expect(second.indexOf("WriteFile")).toBe(4);
+    expect(first.indexOf("ReadFile")).toBeGreaterThan(0);
+    expect(second.indexOf("WriteFile")).toBe(first.indexOf("ReadFile"));
   });
 
-  it("draws one dot per call and sits tight between consecutive calls", () => {
-    // Different tools never fold; a run of identical finished calls does.
+  it("draws one dot per visible call and sits tight between calls", () => {
     const toolStates: ToolCallState[] = [
-      mockToolState({ toolCallId: "call-1" }),
+      mockToolState({ toolCallId: "call-1", status: "generated" }),
       mockToolState({
         toolCallId: "call-2",
+        status: "calling",
         toolCall: {
           id: "call-2",
           type: "function",
@@ -493,6 +495,7 @@ describe("ToolGroupDisplay", () => {
       }),
       mockToolState({
         toolCallId: "call-3",
+        status: "generated",
         toolCall: {
           id: "call-3",
           type: "function",
@@ -524,6 +527,49 @@ describe("ToolGroupDisplay", () => {
     expect(frame.split("\n").filter((line) => line.includes(DOT))).toHaveLength(
       0,
     );
+  });
+
+  it("expands every output in a folded mixed-tool group", async () => {
+    const toolStates = [
+      mockToolState({
+        toolCallId: "group-read",
+        output: [
+          {
+            id: "read-out",
+            name: "Read",
+            description: "",
+            content: "read output",
+          } as never,
+        ],
+      }),
+      mockToolState({
+        toolCallId: "group-bash",
+        output: [
+          {
+            id: "bash-out",
+            name: "Bash",
+            description: "",
+            content: "shell output",
+          } as never,
+        ],
+      }),
+    ];
+    const tree = render(<ToolGroupDisplay toolStates={toolStates} />);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(tree.lastFrame()).toContain("2 calls");
+      let handled = false;
+      for (let attempt = 0; attempt < 25 && !handled; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        handled = dispatchClick(1, 2);
+      }
+      expect(handled).toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(tree.lastFrame()).toContain("read output");
+      expect(tree.lastFrame()).toContain("shell output");
+    } finally {
+      tree.unmount();
+    }
   });
 
   it("renders diff output with dedicated diff view and addition/deletion summary", () => {

@@ -28,6 +28,22 @@ export const SUBAGENT_TOOL_META: Tool = {
         description:
           "The paths this agent will read or write. Subagent calls whose file scopes do not overlap may run in parallel; scopes that overlap are serialized. Omit to run exclusively, serialized against every other subagent.",
       },
+      run_in_background: {
+        type: "boolean",
+        description:
+          "Return a run id immediately and let the child work in the background (default true). Set false only when the caller needs the final report before continuing.",
+      },
+      session_id: {
+        type: "string",
+        description:
+          "Resume a previous child conversation instead of starting a new one.",
+      },
+      isolation: {
+        type: "string",
+        enum: ["worktree"],
+        description:
+          "Run filesystem and shell tools in a temporary git worktree. The worktree is removed when the run ends.",
+      },
     },
   },
   run: async () => "",
@@ -129,6 +145,74 @@ export const LIST_SUBAGENTS_TOOL_META: Tool = {
   parameters: {
     type: "object",
     properties: {},
+  },
+  run: async () => "",
+};
+
+export const TASK_OUTPUT_TOOL_META: Tool = {
+  name: "TaskOutput",
+  displayName: "Task Output",
+  description:
+    "Read one delegated run's status and final report, or list the parent session's live and persisted child runs.",
+  readonly: true,
+  isBuiltIn: true,
+  parameters: {
+    type: "object",
+    properties: {
+      run_id: { type: "string", description: "Run id returned by Subagent." },
+      session_id: { type: "string", description: "Child session id." },
+      include_transcript: {
+        type: "boolean",
+        description: "Include the child transcript's text messages.",
+      },
+    },
+  },
+  run: async () => "",
+};
+
+export const TASK_STOP_TOOL_META: Tool = {
+  name: "TaskStop",
+  displayName: "Task Stop",
+  description:
+    "Stop a running delegated child without stopping the parent turn.",
+  readonly: false,
+  isBuiltIn: true,
+  parameters: {
+    type: "object",
+    required: ["run_id"],
+    properties: {
+      run_id: { type: "string", description: "Run id returned by Subagent." },
+    },
+  },
+  run: async () => "",
+};
+
+export const SEND_MESSAGE_TOOL_META: Tool = {
+  name: "SendMessage",
+  displayName: "Send Message",
+  description:
+    "Send a short steer to a child session, ask the parent for input, or share a brief with the active team. Child-to-parent messages pause the child until the parent replies.",
+  readonly: false,
+  isBuiltIn: true,
+  parameters: {
+    type: "object",
+    required: ["message"],
+    properties: {
+      run_id: { type: "string", description: "Target run id." },
+      session_id: { type: "string", description: "Target child session id." },
+      team_run_id: { type: "string", description: "Target team run id." },
+      recipient: {
+        type: "string",
+        description:
+          "Use parent for a child help request, team for a broadcast, or a member name for a direct brief.",
+      },
+      type: {
+        type: "string",
+        enum: ["task", "question", "sync", "verdict"],
+        description: "Kind of team brief; defaults to sync.",
+      },
+      message: { type: "string", description: "Short message or brief." },
+    },
   },
   run: async () => "",
 };

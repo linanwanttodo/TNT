@@ -13,6 +13,7 @@ import {
   calculateLinesOfCodeDiff,
   getLanguageFromFilePath,
 } from "../telemetry/utils.js";
+import { workspaceRoot } from "../utils/workspaceScope.js";
 
 import { rebaseSingleEdit } from "./editRebase.js";
 import { hasSeenFile, markFileAsSeen } from "./fileState.js";
@@ -42,7 +43,7 @@ export function validateAndResolveFilePath(args: any): {
 
   const absolutePath = path.isAbsolute(file_path)
     ? file_path
-    : path.resolve(process.cwd(), file_path);
+    : path.resolve(workspaceRoot(), file_path);
 
   const clientFs = isWorkspaceFileServiceActive();
   const resolvedPath = clientFs ? absolutePath : fs.realpathSync(absolutePath);

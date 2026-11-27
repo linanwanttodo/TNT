@@ -20,6 +20,7 @@ import {
   parseEnvNumber,
   truncateOutputFromStart,
 } from "../utils/truncateOutput.js";
+import { workspaceRoot } from "../utils/workspaceScope.js";
 
 import { getTerminalRunner } from "./terminalRunner.js";
 import { Tool, ToolRunContext } from "./types.js";
@@ -247,7 +248,7 @@ WHAT COMES BACK:
         const result = await runner.run({
           shell,
           args,
-          cwd: process.cwd(),
+          cwd: workspaceRoot(),
           timeoutMs,
         });
         const truncation = truncateOutputFromStart(result.output, {
@@ -293,6 +294,7 @@ WHAT COMES BACK:
       // Its own process group, so stopping the command stops what the shell
       // started instead of orphaning it. Windows has no process groups.
       const child = spawn(shell, args, {
+        cwd: workspaceRoot(),
         detached: process.platform !== "win32",
       });
       let stdout = "";

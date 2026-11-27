@@ -389,6 +389,8 @@ export interface Session {
    * by taking the larger of the two.
    */
   delegationDepth?: number;
+  /** Parent messages waiting to be admitted to this delegated run. */
+  pendingSubagentMessages?: string[];
   /**
    * Optional: name of the /team roster activated for this session. In-memory
    * session state only (v1); the roster's members become dispatchable and the
@@ -485,6 +487,33 @@ export interface TeamRunMemberRecord {
   report?: string;
 }
 
+export interface TeamBrief {
+  briefId: string;
+  from: string;
+  to: string;
+  type: "task" | "question" | "sync" | "verdict";
+  content: string;
+  createdAt: string;
+}
+
+export type TeamTaskStatus = "pending" | "in_progress" | "completed";
+
+export interface TeamTask {
+  taskId: string;
+  subject: string;
+  description?: string;
+  status: TeamTaskStatus;
+  owner?: string;
+  dependsOn: string[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface TeamTaskView extends TeamTask {
+  blocked: boolean;
+}
+
 export interface TeamRunRecord {
   runId: string;
   team: string;
@@ -499,6 +528,10 @@ export interface TeamRunRecord {
    */
   concurrency?: number;
   members: TeamRunMemberRecord[];
+  /** Short member-to-member briefs; full transcripts stay in child sessions. */
+  briefs?: TeamBrief[];
+  /** Shared team work items with explicit dependencies. */
+  tasks?: TeamTask[];
 }
 
 export interface BaseSessionMetadata {

@@ -163,6 +163,115 @@ describe("useSubagentTree", () => {
     }
   });
 
+  it("matches parallel runs of the same agent by child session id", async () => {
+    const tree = render(<Harness />);
+    try {
+      bus.emit(
+        event({
+          type: "subagent.started",
+          agentName: "Explore",
+          childSessionId: "child-a",
+          prompt: "first",
+        }),
+      );
+      bus.emit(
+        event({
+          type: "subagent.started",
+          agentName: "Explore",
+          childSessionId: "child-b",
+          prompt: "second",
+        }),
+      );
+      await tick();
+      bus.emit(
+        event({
+          type: "subagent.finished",
+          agentName: "Explore",
+          childSessionId: "child-b",
+          content: "done",
+          success: true,
+        }),
+      );
+      await tick();
+
+      const lines = (tree.lastFrame() ?? "").split("\n");
+      const statusAfter = (description: string) => {
+        const index = lines.findIndex((line) => line.includes(description));
+        return (
+          lines
+            .slice(index + 1)
+            .find((line) => /Initializing|Done|Failed/.test(line)) ?? ""
+        );
+      };
+      expect(statusAfter("first")).toContain("Initializing");
+      expect(statusAfter("second")).toContain("Done");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("shows a child waiting for parent input without finishing it", async () => {
+    const tree = render(<Harness />);
+    try {
+      bus.emit(
+        event({
+          type: "subagent.started",
+          agentName: "Explore",
+          childSessionId: "child-a",
+          prompt: "first",
+        }),
+      );
+      await tick();
+      bus.emit(
+        event({
+          type: "subagent.ping",
+          agentName: "Explore",
+          childSessionId: "child-a",
+          content: "Which migration?",
+        }),
+      );
+      await tick();
+
+      expect(tree.lastFrame()).toContain(
+        "Waiting for parent: Which migration?",
+      );
+      expect(tree.lastFrame()).not.toContain("Done");
+    } finally {
+      tree.unmount();
+    }
+  });
+
+  it("marks a user-stopped run as cancelled rather than failed", async () => {
+    const tree = render(<Harness />);
+    try {
+      bus.emit(
+        event({
+          type: "subagent.started",
+          agentName: "Explore",
+          childSessionId: "child-a",
+          prompt: "map the auth flow",
+        }),
+      );
+      await tick();
+      bus.emit(
+        event({
+          type: "subagent.finished",
+          agentName: "Explore",
+          childSessionId: "child-a",
+          content: "cancelled by user",
+          success: false,
+          cancelled: true,
+        }),
+      );
+      await tick();
+
+      expect(tree.lastFrame()).toContain("Cancelled");
+      expect(tree.lastFrame()).not.toContain("Failed");
+    } finally {
+      tree.unmount();
+    }
+  });
+
   it("marks a failed run with the reported error", async () => {
     const tree = render(<Harness />);
     try {

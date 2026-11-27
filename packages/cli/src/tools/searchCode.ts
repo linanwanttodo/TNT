@@ -1,5 +1,6 @@
 import * as child_process from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 import * as util from "util";
 
 import type { ToolPolicy } from "@tnt/terminal-security";
@@ -9,6 +10,7 @@ import { findUp } from "find-up";
 import { policySearchIgnorePatterns } from "../permissions/searchIgnore.js";
 import { isWithinWorkspace } from "../permissions/workspacePath.js";
 import { parseEnvNumber } from "../utils/truncateOutput.js";
+import { workspaceRoot } from "../utils/workspaceScope.js";
 
 import { Tool } from "./types.js";
 
@@ -30,7 +32,7 @@ async function search(
 }
 
 async function getGitignorePatterns() {
-  const gitIgnorePath = await findUp(".gitignore");
+  const gitIgnorePath = await findUp(".gitignore", { cwd: workspaceRoot() });
   if (!gitIgnorePath) return [];
   const content = fs.readFileSync(gitIgnorePath, "utf-8");
   const ignorePatterns = [];
@@ -250,7 +252,9 @@ Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with
     }
     const named = parsedArgs.path;
     const target =
-      typeof named === "string" && named.trim() !== "" ? named : process.cwd();
+      typeof named === "string" && named.trim() !== ""
+        ? named
+        : workspaceRoot();
     return isWithinWorkspace(target) ? basePolicy : "allowedWithPermission";
   },
   preprocess: async (args) => {
@@ -274,7 +278,7 @@ Returns at most ${DEFAULT_SEARCH_MAX_RESULTS} lines by default, overridable with
     file_pattern?: string;
     head_limit?: number;
   }): Promise<string> => {
-    const searchPath = args.path || process.cwd();
+    const searchPath = path.resolve(workspaceRoot(), args.path || ".");
     if (!fs.existsSync(searchPath)) {
       throw new TntError(
         TntErrorReason.Unspecified,

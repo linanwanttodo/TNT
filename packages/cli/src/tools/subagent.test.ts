@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { services } from "../services/index.js";
 import { serviceContainer } from "../services/ServiceContainer.js";
+import {
+  dispatchSubAgent,
+  resumeSubagentRun,
+} from "../subagent/asyncExecutor.js";
 import { executeSubAgent } from "../subagent/executor.js";
 import {
   getAgentNames,
@@ -13,6 +17,7 @@ import { subagentTool } from "./subagent.js";
 
 vi.mock("../subagent/get-agents.js");
 vi.mock("../subagent/executor.js");
+vi.mock("../subagent/asyncExecutor.js");
 vi.mock("../services/ServiceContainer.js", () => ({
   serviceContainer: {
     get: vi.fn(),
@@ -87,6 +92,72 @@ describe("subagentTool", () => {
     ]);
   });
 
+  it("passes markdown isolation and runtime limits to foreground execution", async () => {
+    vi.mocked(resolveDispatchableAgent).mockReturnValue({
+      systemMessage: "persona",
+      kind: "markdown",
+      maxTurns: 4,
+      allowedTools: ["Read", "Search"],
+      permissionMode: "plan",
+      skills: ["review"],
+      isolation: "worktree",
+    });
+    vi.mocked(executeSubAgent).mockResolvedValue({
+      success: true,
+      response: "subagent-output",
+    } as any);
+
+    const tool = await subagentTool();
+    await tool.run(
+      {
+        description: "Inspect safely",
+        prompt: "Inspect the implementation",
+        subagent_name: "test-model",
+        run_in_background: false,
+      },
+      { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
+    );
+
+    expect(executeSubAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxTurns: 4,
+        allowedTools: ["Read", "Search"],
+        permissionMode: "plan",
+        skills: ["review"],
+        isolation: "worktree",
+      }),
+    );
+  });
+
+  it("allows an explicit isolation argument to override the agent default", async () => {
+    vi.mocked(resolveDispatchableAgent).mockReturnValue({
+      systemMessage: "persona",
+      kind: "markdown",
+      isolation: "worktree",
+    });
+    vi.mocked(dispatchSubAgent).mockResolvedValue({
+      runId: "run-isolated",
+      sessionId: "child-isolated",
+      realmId: 1,
+      status: "running",
+    });
+
+    const tool = await subagentTool();
+    await tool.run(
+      {
+        description: "Inspect safely",
+        prompt: "Inspect the implementation",
+        subagent_name: "test-model",
+        isolation: "worktree",
+      },
+      { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
+    );
+
+    expect(dispatchSubAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ isolation: "worktree" }),
+    );
+  });
+
   it("run executes subagent and returns formatted output", async () => {
     vi.mocked(executeSubAgent).mockResolvedValue({
       success: true,
@@ -101,6 +172,7 @@ describe("subagentTool", () => {
         files: ["src/example.ts"],
         prompt: "Subagent prompt",
         subagent_name: "test-model",
+        run_in_background: false,
       },
       { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
     );
@@ -150,7 +222,11 @@ describe("subagentTool", () => {
 
     const tool = await subagentTool();
     const result = await tool.run(
-      { prompt: structured, subagent_name: "test-model" },
+      {
+        prompt: structured,
+        subagent_name: "test-model",
+        run_in_background: false,
+      },
       { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
     );
 
@@ -173,13 +249,60 @@ describe("subagentTool", () => {
 
     const tool = await subagentTool();
     await tool.run(
-      { prompt: "run the parser tests", subagent_name: "test-model" },
+      {
+        prompt: "run the parser tests",
+        subagent_name: "test-model",
+        run_in_background: false,
+      },
       { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
     );
 
     const [options] = vi.mocked(executeSubAgent).mock.calls[0];
     expect(options.prompt).toContain("No file writes:");
     expect(options.prompt).toContain("Unavailable tools: AskQuestion, Exit.");
+  });
+
+  it("dispatches in the background by default and returns the run id", async () => {
+    vi.mocked(dispatchSubAgent).mockResolvedValue({
+      runId: "run-1",
+      sessionId: "child-1",
+      realmId: 1,
+      status: "running",
+    });
+    const tool = await subagentTool();
+
+    const result = await tool.run(
+      { prompt: "inspect the repo", subagent_name: "test-model" },
+      { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
+    );
+
+    expect(dispatchSubAgent).toHaveBeenCalledTimes(1);
+    expect(executeSubAgent).not.toHaveBeenCalled();
+    expect(result).toContain("run-1");
+    expect(result).toContain("child-1");
+  });
+
+  it("continues a previous child session when session_id is supplied", async () => {
+    vi.mocked(resumeSubagentRun).mockResolvedValue({
+      runId: "run-2",
+      sessionId: "child-1",
+      realmId: 1,
+      status: "running",
+    });
+    const tool = await subagentTool();
+
+    const result = await tool.run({
+      prompt: "continue the investigation",
+      subagent_name: "test-model",
+      session_id: "child-1",
+    });
+
+    expect(resumeSubagentRun).toHaveBeenCalledWith(
+      "child-1",
+      expect.stringContaining("continue the investigation"),
+      expect.objectContaining({ parentSessionId: "parent-session-id" }),
+    );
+    expect(result).toContain("run-2");
   });
 
   it("does not change the delegation schema or required parameters", async () => {
@@ -213,7 +336,11 @@ describe("subagentTool", () => {
     const tool = await subagentTool();
 
     const result = await tool.run(
-      { prompt: "verify the change", subagent_name: "verification" },
+      {
+        prompt: "verify the change",
+        subagent_name: "verification",
+        run_in_background: false,
+      },
       { toolCallId: "tool-call-id", parallelToolCallCount: 1 },
     );
 

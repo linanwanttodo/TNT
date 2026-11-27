@@ -1,6 +1,11 @@
 import { AsyncLocalStorage } from "async_hooks";
 
+import { ROOT_REALM } from "../realm/realmTree.js";
+import { runInRealmScope } from "../realm/scope.js";
+import { runInWorkspaceScope } from "../utils/workspaceScope.js";
+
 import type { AgentRunContext } from "./runContext.js";
+import type { SubagentRun } from "./runtime/spawner.js";
 
 /**
  * The parent context a nested dispatch inherits.
@@ -18,6 +23,7 @@ import type { AgentRunContext } from "./runContext.js";
 export interface DispatchScope {
   readonly context: AgentRunContext;
   readonly maxDelegationDepth: number;
+  readonly runtime?: SubagentRun;
 }
 
 const storage = new AsyncLocalStorage<DispatchScope>();
@@ -26,7 +32,12 @@ export function runInDispatchScope<T>(
   scope: DispatchScope,
   task: () => Promise<T>,
 ): Promise<T> {
-  return storage.run(scope, task);
+  return runInRealmScope(scope.context.realmId ?? ROOT_REALM, () => {
+    const run = () => storage.run(scope, task);
+    return scope.context.workspaceRoot
+      ? runInWorkspaceScope(scope.context.workspaceRoot, run)
+      : run();
+  });
 }
 
 export function currentDispatchScope(): DispatchScope | undefined {

@@ -27,6 +27,10 @@ export function handleTeamCommand(args: string[] = []): SlashCommandResult {
   const [first, ...rest] = args;
   const cwd = process.cwd();
 
+  if (first === "tasks") {
+    return { openTeamTasksSelector: true };
+  }
+
   if (first === "off") {
     setSessionActiveTeam(undefined);
     return { output: t("team.off") };

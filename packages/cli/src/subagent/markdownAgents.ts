@@ -33,6 +33,7 @@ export interface MarkdownAgent {
   maxTurns?: number;
   background?: boolean;
   skills?: string[];
+  isolation?: "worktree";
 }
 
 export interface MarkdownAgentRoot {
@@ -125,6 +126,9 @@ function parseAgentFile(
         ? { background: front.background }
         : {}),
       ...(stringList(front.skills) ? { skills: stringList(front.skills) } : {}),
+      ...(front.isolation === "worktree"
+        ? { isolation: "worktree" as const }
+        : {}),
     };
   } catch (error) {
     logger.debug("Could not read a markdown agent", {
@@ -225,6 +229,7 @@ export interface AgentMarkdownInput {
   maxTurns?: number;
   background?: boolean;
   skills?: string[];
+  isolation?: "worktree";
 }
 
 export function serializeAgentMarkdown(agent: AgentMarkdownInput): string {
@@ -255,6 +260,9 @@ export function serializeAgentMarkdown(agent: AgentMarkdownInput): string {
   }
   if (agent.skills && agent.skills.length > 0) {
     frontmatter.skills = agent.skills;
+  }
+  if (agent.isolation) {
+    frontmatter.isolation = agent.isolation;
   }
   const yaml = stringifyYaml(frontmatter).trimEnd();
   return `---\n${yaml}\n---\n\n${agent.systemPrompt.trim()}\n`;

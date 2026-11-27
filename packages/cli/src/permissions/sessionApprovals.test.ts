@@ -3,6 +3,7 @@ import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { getCurrentSessionId, startNewSession } from "../session/index.js";
+import { runInWorkspaceScope } from "../utils/workspaceScope.js";
 
 import {
   clearSessionApprovals,
@@ -36,12 +37,12 @@ describe("sessionApprovalKey", () => {
   });
 
   it("keys the same relative line differently per working directory", () => {
-    const spy = vi.spyOn(process, "cwd");
-    spy.mockReturnValueOnce("/repo/one");
-    const fromOne = sessionApprovalKey("Bash", { command: "rm notes.txt" });
-    spy.mockReturnValueOnce("/repo/two");
-    const fromTwo = sessionApprovalKey("Bash", { command: "rm notes.txt" });
-    spy.mockRestore();
+    const fromOne = runInWorkspaceScope("/repo/one", () =>
+      sessionApprovalKey("Bash", { command: "rm notes.txt" }),
+    );
+    const fromTwo = runInWorkspaceScope("/repo/two", () =>
+      sessionApprovalKey("Bash", { command: "rm notes.txt" }),
+    );
 
     expect(fromOne).not.toBe(fromTwo);
     expect(fromOne).toContain("/repo/one::rm notes.txt");

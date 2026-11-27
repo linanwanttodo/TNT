@@ -9,6 +9,7 @@ import {
 } from "../session/index.js";
 import { ASSIGN_TEAM_MODEL_TOOL_META } from "../subagent/index.js";
 import { loadTeams, type TeamDefinition } from "../team/loader.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { Tool } from "./types.js";
 
@@ -99,7 +100,9 @@ export const assignTeamModelTool = async (): Promise<Tool> => {
     run: async (args: any) => {
       const activeTeamName = getSessionActiveTeam();
       const activeTeam = activeTeamName
-        ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
+        ? loadTeams(currentWorkspaceRoot()).find(
+            (team) => team.name === activeTeamName,
+          )
         : undefined;
 
       const assignment = resolveTeamModelAssignment({

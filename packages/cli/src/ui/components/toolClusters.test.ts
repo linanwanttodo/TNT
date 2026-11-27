@@ -13,39 +13,45 @@ function state(toolName: string, status: string, id: string) {
 }
 
 describe("tool display clusters", () => {
-  it("folds a run of three finished calls of the same tool", () => {
+  it("folds consecutive finished calls even when the tools differ", () => {
     const clusters = clusterToolStates([
       state("read_file", "done", "1"),
-      state("read_file", "done", "2"),
-      state("read_file", "done", "3"),
+      state("bash", "done", "2"),
     ]);
     expect(clusters).toHaveLength(1);
     expect(clusters[0].collapsed).toBe(true);
-    expect(clusterSummary(clusters[0], "Read")).toEqual({
-      label: "Read · 3 calls",
-      hidden: 2,
+    expect(clusterSummary(clusters[0])).toEqual({
+      label: "2 calls",
+      hidden: 1,
     });
   });
 
-  it("keeps short runs, different tools and live calls visible", () => {
+  it("keeps a live call outside the finished cluster", () => {
     const clusters = clusterToolStates([
       state("read_file", "done", "1"),
-      state("read_file", "done", "2"),
-      state("bash", "calling", "3"),
-      state("bash", "done", "4"),
+      state("bash", "calling", "2"),
+      state("write_file", "done", "3"),
     ]);
     expect(clusters.every((cluster) => !cluster.collapsed)).toBe(true);
     expect(clusters).toHaveLength(3);
   });
 
-  it("never folds a failed call into its neighbours", () => {
+  it("folds failures with their neighbours and reports the failure count", () => {
     const clusters = clusterToolStates([
       state("bash", "done", "1"),
-      state("bash", "done", "2"),
-      state("bash", "errored", "3"),
-      state("bash", "done", "4"),
+      state("bash", "errored", "2"),
+      state("read_file", "canceled", "3"),
     ]);
-    expect(clusters.every((cluster) => !cluster.collapsed)).toBe(true);
-    expect(clusters[clusters.length - 1].states[0].status).toBe("done");
+    expect(clusters).toHaveLength(1);
+    expect(clusters[0].collapsed).toBe(true);
+    expect(clusterSummary(clusters[0])).toEqual({
+      label: "3 calls · 1 failed",
+      hidden: 2,
+    });
+  });
+
+  it("does not hide a single finished call", () => {
+    const clusters = clusterToolStates([state("read_file", "done", "1")]);
+    expect(clusters[0].collapsed).toBe(false);
   });
 });

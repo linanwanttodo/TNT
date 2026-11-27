@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { checkToolPermission } from "../permissions/permissionChecker.js";
 import { builtInAgentByName } from "../subagent/builtInAgents.js";
+import { narrowPermissions } from "../subagent/runContext.js";
 
 import { DEFAULT_TEAMS } from "./defaultTeams.js";
 
@@ -41,6 +43,63 @@ describe("DEFAULT_TEAMS", () => {
         "verification",
       ].sort(),
     );
+  });
+
+  it("exposes a market team with research risk and execution roles", () => {
+    const market = DEFAULT_TEAMS.find((team) => team.name === "market");
+    expect(market).toBeDefined();
+    expect(market!.members.map((member) => member.name).sort()).toEqual(
+      [
+        "compliance-officer",
+        "execution-planner",
+        "fundamentals-analyst",
+        "macro-researcher",
+        "market-sentiment",
+        "portfolio-manager",
+        "risk-manager",
+        "technical-analyst",
+      ].sort(),
+    );
+    expect(market!.lead.name).toBe("portfolio-manager");
+  });
+
+  it("keeps the market team read-only and requires human trade approval", () => {
+    const market = DEFAULT_TEAMS.find((team) => team.name === "market")!;
+    for (const member of market.members) {
+      expect(member.restriction).toBe("readonly");
+      expect(member.deniedTools).toContain("Bash");
+    }
+    const lead = market.members.find(
+      (member) => member.name === "portfolio-manager",
+    )!;
+    expect(lead.systemMessage).toContain("不保证收益");
+    expect(lead.systemMessage).toContain("人工确认");
+    expect(lead.systemMessage).toContain("不得下单");
+  });
+
+  it("hard-denies broker MCP tools while keeping built-in research available", () => {
+    const market = DEFAULT_TEAMS.find((team) => team.name === "market")!;
+    for (const member of market.members) {
+      const permissions = narrowPermissions(
+        { policies: [{ tool: "*", permission: "allow" }] },
+        {
+          restriction: member.restriction,
+          deniedTools: member.deniedTools,
+        },
+      );
+      expect(
+        checkToolPermission(
+          { name: "mcp__broker__place_order", arguments: {} },
+          permissions,
+        ).permission,
+      ).toBe("exclude");
+      expect(
+        checkToolPermission(
+          { name: "WebSearch", arguments: { query: "filing" } },
+          permissions,
+        ).permission,
+      ).toBe("allow");
+    }
   });
 
   it("gives each team exactly one lead", () => {

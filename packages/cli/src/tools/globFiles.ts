@@ -5,6 +5,7 @@ import util from "util";
 
 import { t } from "../i18n/index.js";
 import { policySearchIgnorePatterns } from "../permissions/searchIgnore.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { formatToolArgument } from "./formatters.js";
 import { checkIfRipgrepIsInstalled } from "./searchCode.js";
@@ -94,7 +95,9 @@ export const globFilesTool: Tool = {
       throw new Error(t("tools.globNeedsRipgrep"));
     }
 
-    const root = args.path ? path.resolve(args.path) : process.cwd();
+    const root = args.path
+      ? path.resolve(currentWorkspaceRoot(), args.path)
+      : currentWorkspaceRoot();
     const limit = maxResults();
 
     // The permission policies' own path refusals join the listing: a rule

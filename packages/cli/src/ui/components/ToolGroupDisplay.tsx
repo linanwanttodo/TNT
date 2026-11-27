@@ -60,6 +60,7 @@ const MAX_EXPANDED_OUTPUT_LINES = 60;
 export interface ToolItemDisplayProps {
   toolState: ToolCallState;
   isFirst?: boolean;
+  defaultExpanded?: boolean;
 }
 
 export interface ToolDotStyle {
@@ -281,180 +282,187 @@ function planOutput(
 
 /**
  * One tool call: a two-column dot gutter, then the name and its subject, with
- * the output hanging underneath behind the U+23BF result gutter. Clicking the
- * call folds or unfolds the output; a finished call folds itself so the
- * transcript settles on its own.
+ * the output indented underneath. Clicking the call folds or unfolds the
+ * output; a finished call folds itself so the transcript settles on its own.
  */
-export const ToolItemDisplay = memo<ToolItemDisplayProps>(({ toolState }) => {
-  const activeTheme = useTheme();
-  const toolName = toolState.toolCall.function.name;
-  const args = toolState.parsedArgs;
-  const dot = toolDotStyle(toolState.status, activeTheme);
-  const live = toolDotIsLive(toolState.status);
-  const blinkVisible = useBlink(live);
-  const dotGlyph = toolDotGlyph(dot, blinkVisible);
-  // Gray on the off half, white on the on half, so a running call reads as
-  // alive without the dot disappearing from the line.
-  const dotColor = live
-    ? blinkVisible
-      ? activeTheme.text.primary
-      : activeTheme.text.subtle
-    : dot.color;
-  const displayName = getToolDisplayName(toolName);
-  const description = sanitizeTerminalText(describeCall(toolName, args));
-  const rawOutput = sanitizeTerminalText(
-    toolState.output?.length
-      ? toolState.output.map((item) => item.content).join("\n")
-      : "",
-  );
-  // A failed call with no captured output still has to say what happened.
-  const output =
-    rawOutput ||
-    (toolState.status === "errored" ? t("tool.executionFailed") : "");
-  const summary = summarizeResult(toolName, toolState.status, output);
-  const shell = isShellTool(displayName);
+export const ToolItemDisplay = memo<ToolItemDisplayProps>(
+  ({ toolState, defaultExpanded = false }) => {
+    const activeTheme = useTheme();
+    const toolName = toolState.toolCall.function.name;
+    const args = toolState.parsedArgs;
+    const dot = toolDotStyle(toolState.status, activeTheme);
+    const live = toolDotIsLive(toolState.status);
+    const blinkVisible = useBlink(live);
+    const dotGlyph = toolDotGlyph(dot, blinkVisible);
+    // Gray on the off half, white on the on half, so a running call reads as
+    // alive without the dot disappearing from the line.
+    const dotColor = live
+      ? blinkVisible
+        ? activeTheme.text.primary
+        : activeTheme.text.subtle
+      : dot.color;
+    const displayName = getToolDisplayName(toolName);
+    const description = sanitizeTerminalText(describeCall(toolName, args));
+    const rawOutput = sanitizeTerminalText(
+      toolState.output?.length
+        ? toolState.output.map((item) => item.content).join("\n")
+        : "",
+    );
+    // A failed call with no captured output still has to say what happened.
+    const output =
+      rawOutput ||
+      (toolState.status === "errored" ? t("tool.executionFailed") : "");
+    const summary = summarizeResult(toolName, toolState.status, output);
+    const shell = isShellTool(displayName);
 
-  const terminal = isTerminalStatus(toolState.status);
-  const panelRef = useRef<DOMElement>(null);
-  // The reference CLI owns the fold on ctrl+o; a click keeps its per-block
-  // override and the global sets the default.
-  const globalExpanded = useToolOutputExpanded();
-  const [override, setOverride] = useState<boolean | null>(null);
-  const expanded = override ?? (globalExpanded || !terminal);
-  const [durationMs, setDurationMs] = useState<number | null>(null);
-  const wasTerminal = useRef(terminal);
-  const startedAt = useRef<number | null>(null);
-  const endedAt = useRef<number | null>(null);
+    const terminal = isTerminalStatus(toolState.status);
+    const panelRef = useRef<DOMElement>(null);
+    // The reference CLI owns the fold on ctrl+o; a click keeps its per-block
+    // override and the global sets the default.
+    const globalExpanded = useToolOutputExpanded();
+    const [override, setOverride] = useState<boolean | null>(
+      defaultExpanded ? true : null,
+    );
+    const expanded = override ?? (globalExpanded || !terminal);
+    const [durationMs, setDurationMs] = useState<number | null>(null);
+    const wasTerminal = useRef(terminal);
+    const startedAt = useRef<number | null>(null);
+    const endedAt = useRef<number | null>(null);
 
-  // A finished call folds its output without a second click. A call opened
-  // later in a resumed session starts folded, since no clock was observed.
-  useEffect(() => {
-    if (terminal && !wasTerminal.current) {
-      setOverride(false);
-    }
-    wasTerminal.current = terminal;
-  }, [terminal]);
+    // A finished call folds its output without a second click. A call opened
+    // later in a resumed session starts folded, since no clock was observed.
+    useEffect(() => {
+      if (terminal && !wasTerminal.current) {
+        setOverride(false);
+      }
+      wasTerminal.current = terminal;
+    }, [terminal]);
 
-  useEffect(() => {
-    if (!terminal && startedAt.current === null) {
-      startedAt.current = Date.now();
-    }
-    if (
-      terminal &&
-      startedAt.current !== null &&
-      endedAt.current === null &&
-      durationMs === null
-    ) {
-      endedAt.current = Date.now();
-      setDurationMs(endedAt.current - startedAt.current);
-    }
-  }, [terminal, durationMs]);
+    useEffect(() => {
+      if (!terminal && startedAt.current === null) {
+        startedAt.current = Date.now();
+      }
+      if (
+        terminal &&
+        startedAt.current !== null &&
+        endedAt.current === null &&
+        durationMs === null
+      ) {
+        endedAt.current = Date.now();
+        setDurationMs(endedAt.current - startedAt.current);
+      }
+    }, [terminal, durationMs]);
 
-  useClickRegion(panelRef, () => {
-    setOverride(!(override ?? (globalExpanded || !terminal)));
-  });
+    useClickRegion(panelRef, () => {
+      setOverride(!(override ?? (globalExpanded || !terminal)));
+    });
 
-  // Folding, unfolding and adding the duration row change this panel's height
-  // without rendering the ScrollView that clips it. Tell the viewport so the
-  // new height is measured and the live tail stays pinned to the bottom.
-  useLayoutEffect(() => {
-    markLayoutDirty();
-  }, [expanded, durationMs]);
+    // Folding, unfolding and adding the duration row change this panel's height
+    // without rendering the ScrollView that clips it. Tell the viewport so the
+    // new height is measured and the live tail stays pinned to the bottom.
+    useLayoutEffect(() => {
+      markLayoutDirty();
+    }, [expanded, durationMs]);
 
-  const hasDiff = isDiffContent(output);
-  const { notes, diff } = hasDiff
-    ? separateDiffAndNotes(output)
-    : { notes: "", diff: "" };
+    const hasDiff = isDiffContent(output);
+    const { notes, diff } = hasDiff
+      ? separateDiffAndNotes(output)
+      : { notes: "", diff: "" };
 
-  const preview = planOutput(output, expanded, toolState.status === "errored");
-  const duration = durationMs === null ? undefined : formatDuration(durationMs);
-  const toggleHint =
-    preview.hiddenAbove > 0
-      ? `... (${preview.hiddenAbove} earlier ${
-          preview.hiddenAbove === 1 ? "line" : "lines"
-        }, click to expand)`
-      : expanded && output
-        ? "click to collapse"
-        : "";
+    const preview = planOutput(
+      output,
+      expanded,
+      toolState.status === "errored",
+    );
+    const duration =
+      durationMs === null ? undefined : formatDuration(durationMs);
+    const toggleHint =
+      preview.hiddenAbove > 0
+        ? `... (${preview.hiddenAbove} earlier ${
+            preview.hiddenAbove === 1 ? "line" : "lines"
+          }, click to expand)`
+        : expanded && output
+          ? "click to collapse"
+          : "";
 
-  const titleRow = (
-    <Text wrap="truncate-end">
-      <Text color={activeTheme.text.subtle}>{expanded ? "▾ " : "▸ "}</Text>
-      {shell && description ? (
-        <>
-          <Text color={activeTheme.text.secondary}>$ </Text>
-          <Text color={activeTheme.text.primary}>{description}</Text>
-        </>
-      ) : (
-        <>
-          <Text bold color={activeTheme.accent}>
-            {displayName}
-          </Text>
-          {description ? (
-            <Text color={activeTheme.text.secondary}>: {description}</Text>
-          ) : null}
-        </>
-      )}
-      {summary ? (
-        <Text color={activeTheme.text.subtle}> · {summary}</Text>
-      ) : null}
-      {duration ? (
-        <Text color={activeTheme.tool.hint}> · ({duration})</Text>
-      ) : null}
-    </Text>
-  );
-
-  return (
-    <Box ref={panelRef} flexDirection="column" width="100%">
-      <Box flexDirection="row" width="100%">
-        <Box minWidth={2} flexShrink={0}>
-          <Text color={dotColor} dimColor={dot.dim}>
-            {dotGlyph}
-          </Text>
-        </Box>
-        <Box flexGrow={1} flexShrink={1} flexBasis={0} minWidth={0}>
-          {titleRow}
-        </Box>
-      </Box>
-
-      {hasDiff ? (
-        <ToolResultBlock>
-          <Box flexDirection="column">
-            {notes ? (
-              <Box marginBottom={1}>
-                <Text color={activeTheme.text.secondary}>{notes}</Text>
-              </Box>
-            ) : null}
-            <ToolDiffView
-              diffContent={diff}
-              expanded={expanded}
-              customTheme={activeTheme}
-            />
-          </Box>
-        </ToolResultBlock>
-      ) : output ? (
-        <ToolResultBlock>
-          <Box flexDirection="column">
-            {preview.hiddenAbove > 0 ? (
-              <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
-            ) : null}
-            <Text color={activeTheme.tool.output}>
-              {preview.lines.join("\n")}
+    const titleRow = (
+      <Text wrap="truncate-end">
+        {shell && description ? (
+          <>
+            <Text color={activeTheme.text.secondary}>$ </Text>
+            <Text color={activeTheme.text.primary}>{description}</Text>
+          </>
+        ) : (
+          <>
+            <Text bold color={activeTheme.accent}>
+              {displayName}
             </Text>
-            {preview.hiddenBelow > 0 ? (
-              <Text color={activeTheme.tool.hint}>
-                ... ({preview.hiddenBelow} more lines)
-              </Text>
+            {description ? (
+              <Text color={activeTheme.text.secondary}>: {description}</Text>
             ) : null}
-            {preview.hiddenAbove === 0 && expanded ? (
-              <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
-            ) : null}
+          </>
+        )}
+        {summary ? (
+          <Text color={activeTheme.text.subtle}> · {summary}</Text>
+        ) : null}
+        {duration ? (
+          <Text color={activeTheme.tool.hint}> · ({duration})</Text>
+        ) : null}
+      </Text>
+    );
+
+    return (
+      <Box ref={panelRef} flexDirection="column" width="100%">
+        <Box flexDirection="row" width="100%">
+          <Box minWidth={2} flexShrink={0}>
+            <Text color={dotColor} dimColor={dot.dim}>
+              {dotGlyph}
+            </Text>
           </Box>
-        </ToolResultBlock>
-      ) : null}
-    </Box>
-  );
-});
+          <Box flexGrow={1} flexShrink={1} flexBasis={0} minWidth={0}>
+            {titleRow}
+          </Box>
+        </Box>
+
+        {hasDiff ? (
+          <ToolResultBlock>
+            <Box flexDirection="column">
+              {notes ? (
+                <Box marginBottom={1}>
+                  <Text color={activeTheme.text.secondary}>{notes}</Text>
+                </Box>
+              ) : null}
+              <ToolDiffView
+                diffContent={diff}
+                expanded={expanded}
+                customTheme={activeTheme}
+              />
+            </Box>
+          </ToolResultBlock>
+        ) : output ? (
+          <ToolResultBlock>
+            <Box flexDirection="column">
+              {preview.hiddenAbove > 0 ? (
+                <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
+              ) : null}
+              <Text color={activeTheme.tool.output}>
+                {preview.lines.join("\n")}
+              </Text>
+              {preview.hiddenBelow > 0 ? (
+                <Text color={activeTheme.tool.hint}>
+                  ... ({preview.hiddenBelow} more lines)
+                </Text>
+              ) : null}
+              {preview.hiddenAbove === 0 && expanded ? (
+                <Text color={activeTheme.tool.hint}>{toggleHint}</Text>
+              ) : null}
+            </Box>
+          </ToolResultBlock>
+        ) : null}
+      </Box>
+    );
+  },
+);
 
 ToolItemDisplay.displayName = "ToolItemDisplay";
 
@@ -464,9 +472,8 @@ export interface ToolGroupDisplayProps {
 
 const ClusterRow = memo<{
   cluster: ToolDisplayCluster;
-  displayName: string;
   onToggle: () => void;
-}>(({ cluster, displayName, onToggle }) => {
+}>(({ cluster, onToggle }) => {
   const activeTheme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const panelRef = useRef<DOMElement>(null);
@@ -474,13 +481,16 @@ const ClusterRow = memo<{
     setExpanded((value) => !value);
     onToggle();
   });
-  const summary = clusterSummary(cluster, displayName);
+  const summary = clusterSummary(cluster);
   const showSummary = cluster.collapsed && !expanded;
+  const failed = cluster.states.some((state) => state.status === "errored");
 
   return (
     <Box ref={panelRef} flexDirection="column" width="100%">
       {showSummary ? (
-        <Text color={activeTheme.text.secondary}>
+        <Text
+          color={failed ? activeTheme.status.error : activeTheme.text.secondary}
+        >
           {summary.label} · click to expand
         </Text>
       ) : (
@@ -488,6 +498,7 @@ const ClusterRow = memo<{
           <ToolItemDisplay
             key={state.toolCallId || `${cluster.key}-${index}`}
             toolState={state}
+            defaultExpanded
           />
         ))
       )}
@@ -515,7 +526,6 @@ export const ToolGroupDisplay = memo<ToolGroupDisplayProps>(
             <ClusterRow
               key={cluster.key}
               cluster={cluster}
-              displayName={getToolDisplayName(cluster.toolName)}
               onToggle={() => markLayoutDirty()}
             />
           ) : (

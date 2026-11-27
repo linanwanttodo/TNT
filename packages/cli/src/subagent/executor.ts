@@ -1,10 +1,16 @@
 /* eslint-disable max-lines, max-statements -- the dispatch lifecycle keeps start, failure and cancellation in one ordered flow */
 import type { ChatHistoryItem } from "core";
 
-import { fireSubagentStart, fireSubagentStop } from "../hooks/fireHook.js";
+import {
+  fireSubagentStart,
+  fireSubagentStop,
+  fireTeammateIdle,
+} from "../hooks/fireHook.js";
 import { t } from "../i18n/index.js";
+import type { PermissionMode } from "../permissions/types.js";
 import { publishAgentEvent } from "../protocol/eventBus.js";
 import { type AgentEvent, type AgentEventInput } from "../protocol/events.js";
+import { ROOT_REALM, realmTree, type RealmId } from "../realm/realmTree.js";
 import { services } from "../services/index.js";
 import { ModelServiceState } from "../services/types.js";
 import { runAgentTurn } from "../session/controller.js";
@@ -19,7 +25,12 @@ import {
 } from "../session/index.js";
 import { loadTeams } from "../team/loader.js";
 import { escapeEvents } from "../utils/cli.js";
+import { loadMarkdownSkills } from "../utils/loadMarkdownSkills.js";
 import { logger } from "../utils/logger.js";
+import {
+  runInWorkspaceScope,
+  workspaceRoot as currentWorkspaceRoot,
+} from "../utils/workspaceScope.js";
 
 import {
   canDelegate,
@@ -35,7 +46,9 @@ import {
   releaseTeamMemberSlot,
 } from "./memberLimiter.js";
 import { createChildContext, type AgentRunContext } from "./runContext.js";
+import type { SubagentRun } from "./runtime/spawner.js";
 import { type SubAgentVerdict, parseVerdict } from "./verdict.js";
+import { cleanupSubagentWorktree, createSubagentWorktree } from "./worktree.js";
 
 /**
  * A team member gets a wall-clock budget because a lead may dispatch several
@@ -44,6 +57,8 @@ import { type SubAgentVerdict, parseVerdict } from "./verdict.js";
  * enough that a stuck provider surfaces in the same conversation.
  */
 export const DEFAULT_TEAM_MEMBER_TIMEOUT_MS = 15 * 60 * 1000;
+const MAX_TEAMMATE_IDLE_BLOCKS = 3;
+let dispatchSequence = 0;
 
 export function teamMemberTimeoutMs(): number {
   const raw = process.env.TNT_TEAM_MEMBER_TIMEOUT_MS;
@@ -71,6 +86,28 @@ export interface SubAgentExecutionOptions {
   maxDelegationDepth?: number;
   /** Test seam for the per-member wall-clock budget. */
   memberTimeoutMs?: number;
+  /** Existing child session to resume instead of creating a new transcript. */
+  childSessionId?: string;
+  /** Full child history for a resumed or asynchronously steered run. */
+  initialHistory?: ChatHistoryItem[];
+  /** Live run handle used by parent/child messaging and cancellation. */
+  runtime?: SubagentRun;
+  /** Realm already allocated by the asynchronous runtime, when present. */
+  realmId?: RealmId;
+  /** Persist a running transcript without rewriting it on every token. */
+  onHistoryUpdate?: (history: ChatHistoryItem[]) => void;
+  /** Maximum model/tool rounds for this delegated run. */
+  maxTurns?: number;
+  /** Agent-definition tool allowlist. */
+  allowedTools?: readonly string[];
+  /** Agent-definition permission mode override. */
+  permissionMode?: PermissionMode;
+  /** Skills whose full content is preloaded into the child context. */
+  skills?: readonly string[];
+  /** Create an isolated git worktree for this run. */
+  isolation?: "worktree";
+  /** Existing isolated root, when the caller owns its lifecycle. */
+  workspaceRoot?: string;
 }
 
 /**
@@ -94,6 +131,7 @@ async function buildAgentSystemMessage(
   agent: ModelServiceState,
   mode: string,
   dispatchablePrompt?: string,
+  skills?: readonly string[],
 ): Promise<string> {
   const baseMessage = services.systemMessage
     ? await services.systemMessage.getSystemMessage(mode as any)
@@ -105,12 +143,26 @@ async function buildAgentSystemMessage(
   const agentPrompt =
     agent.model?.chatOptions?.baseSystemMessage || dispatchablePrompt || "";
 
-  // Combine base system message with agent-specific prompt
-  if (agentPrompt) {
-    return `${baseMessage}\n\n${agentPrompt}`;
+  const parts = [baseMessage, agentPrompt].filter(Boolean);
+  if (skills?.length) {
+    const { skills: available } = await loadMarkdownSkills();
+    const preloaded = skills.flatMap((name) => {
+      const skill = available.find(
+        (candidate) => candidate.name === name && candidate.enabled !== false,
+      );
+      return skill
+        ? [
+            `<skill_name>${skill.name}</skill_name>\n<skill_content>${skill.content}</skill_content>`,
+          ]
+        : [];
+    });
+    if (preloaded.length > 0) {
+      parts.push(
+        `<preloaded_skills>\n${preloaded.join("\n\n")}\n</preloaded_skills>`,
+      );
+    }
   }
-
-  return baseMessage;
+  return parts.join("\n\n");
 }
 
 /** The model id the dispatch actually runs on, for the run ledger. */
@@ -235,14 +287,17 @@ function beginSubagentDispatch(options: {
   prompt: string;
   chatHistory: ChatHistoryItem[];
   childDepth: number;
+  childSessionId?: string;
   emit: (event: AgentEventInput) => void;
 }): string {
-  const child = saveSubagentSession({
-    parentSessionId: options.parentSessionId,
-    subagentType: options.agentType,
-    history: options.chatHistory,
-    delegationDepth: options.childDepth,
-  });
+  const child = options.childSessionId
+    ? { sessionId: options.childSessionId }
+    : saveSubagentSession({
+        parentSessionId: options.parentSessionId,
+        subagentType: options.agentType,
+        history: options.chatHistory,
+        delegationDepth: options.childDepth,
+      });
   options.emit({
     type: "subagent.started",
     agentName: options.agentType,
@@ -313,12 +368,14 @@ async function completeChildRun(options: {
   options.emit({
     type: "subagent.reported",
     agentName: options.agentType,
+    childSessionId,
     content: response,
   });
   const verdict = parseVerdict(response);
   options.emit({
     type: "subagent.finished",
     agentName: options.agentType,
+    childSessionId,
     content: response,
     success: true,
     ...(verdict ? { verdict: verdict as string } : {}),
@@ -372,6 +429,7 @@ function recordChildFailure(options: {
       error: message,
     });
     options.bookkeeping.memberFinished = true;
+    void fireTeammateIdle(options.agentName, message).catch(() => undefined);
   }
 
   // The catch may fire before the started event existed (model resolution
@@ -380,11 +438,58 @@ function recordChildFailure(options: {
     options.emit({
       type: "subagent.finished",
       agentName: options.agentName,
+      ...(options.childSessionId
+        ? { childSessionId: options.childSessionId }
+        : {}),
       content: message,
       success: false,
       ...(options.cancelled ? { cancelled: true } : {}),
     });
   }
+}
+
+function resolveRealmId(
+  options: SubAgentExecutionOptions,
+  runtime: SubagentRun | undefined,
+  parent: AgentRunContext,
+): RealmId {
+  return (
+    options.realmId ??
+    runtime?.realmId ??
+    realmTree.fork(parent.realmId ?? ROOT_REALM)
+  );
+}
+
+async function resolveExecutionWorkspace(
+  options: SubAgentExecutionOptions,
+  parent: AgentRunContext,
+): Promise<{ workspaceRoot?: string; createdWorktree?: string }> {
+  const createdWorktree =
+    options.isolation === "worktree" && !options.workspaceRoot
+      ? await createSubagentWorktree()
+      : undefined;
+  return {
+    workspaceRoot:
+      options.workspaceRoot ?? parent.workspaceRoot ?? createdWorktree,
+    createdWorktree,
+  };
+}
+
+function buildScopedSystemMessage(
+  agent: ModelServiceState,
+  options: SubAgentExecutionOptions,
+  parent: AgentRunContext,
+  dispatchablePrompt?: string,
+  workspaceRoot?: string,
+): Promise<string> {
+  const build = () =>
+    buildAgentSystemMessage(
+      agent,
+      options.permissionMode ?? parent.mode,
+      dispatchablePrompt,
+      options.skills,
+    );
+  return workspaceRoot ? runInWorkspaceScope(workspaceRoot, build) : build();
 }
 
 /**
@@ -400,6 +505,10 @@ export async function executeSubAgent(
     abortController,
     onOutputUpdate,
     parentContext,
+    childSessionId: existingChildSessionId,
+    initialHistory,
+    runtime,
+    onHistoryUpdate,
   } = options;
 
   // Delegation lives on the agent event bus too, so a surface that is not the
@@ -407,12 +516,16 @@ export async function executeSubAgent(
   // session id; the child turn's own controller events stay separate.
   let nextSeq = 0;
   const agentType = subAgent.model?.name ?? "agent";
+  dispatchSequence += 1;
+  const eventTurnId =
+    options.runtime?.runId ??
+    `${options.parentSessionId}:${agentType}:${dispatchSequence}`;
   const emit = (event: AgentEventInput): void => {
     nextSeq += 1;
     publishAgentEvent({
       ...event,
       sessionId: options.parentSessionId,
-      turnId: agentType,
+      turnId: eventTurnId,
       seq: nextSeq,
       timestamp: Date.now(),
     } as AgentEvent);
@@ -429,6 +542,7 @@ export async function executeSubAgent(
   // inspectable, and so a failure has a real transcript to persist.
   let chatHistory: ChatHistoryItem[] = [];
   let childSessionId: string | undefined;
+  let createdWorktree: string | undefined;
   const liveRunId = noteSubagentRunStarted(agentType);
 
   try {
@@ -441,21 +555,28 @@ export async function executeSubAgent(
       throw new Error(t("subagent.modelUnavailable"));
     }
 
-    chatHistory = [
-      {
-        message: {
-          role: "user",
-          content: prompt,
-        },
-        contextItems: [],
-      },
-    ] as ChatHistoryItem[];
+    chatHistory = initialHistory
+      ? initialHistory.map((item) => ({
+          ...item,
+          message: { ...item.message },
+          contextItems: [...(item.contextItems ?? [])],
+        }))
+      : ([
+          {
+            message: {
+              role: "user",
+              content: prompt,
+            },
+            contextItems: [],
+          },
+        ] as ChatHistoryItem[]);
 
     const { resolvedParent, maxDelegationDepth } = resolveParentAndDepth(
       options,
       ambient,
       abortController,
     );
+    const realmId = resolveRealmId(options, runtime, resolvedParent);
 
     const childDepth = resolveChildDepth({
       delegationDepth: resolvedParent.delegationDepth,
@@ -464,7 +585,9 @@ export async function executeSubAgent(
 
     const activeTeamName = getSessionActiveTeam();
     const activeTeam = activeTeamName
-      ? loadTeams(process.cwd()).find((team) => team.name === activeTeamName)
+      ? loadTeams(currentWorkspaceRoot()).find(
+          (team) => team.name === activeTeamName,
+        )
       : undefined;
     const dispatchable = resolveDispatchableAgent(
       agentType,
@@ -472,10 +595,15 @@ export async function executeSubAgent(
       activeTeam,
     );
 
-    const systemMessage = await buildAgentSystemMessage(
+    const workspace = await resolveExecutionWorkspace(options, resolvedParent);
+    createdWorktree = workspace.createdWorktree;
+    const workspaceRoot = workspace.workspaceRoot;
+    const systemMessage = await buildScopedSystemMessage(
       subAgent,
-      resolvedParent.mode,
+      options,
+      resolvedParent,
       dispatchable?.systemMessage,
+      workspaceRoot,
     );
 
     const runAbort = createRunAbortController(
@@ -494,6 +622,10 @@ export async function executeSubAgent(
       // this existed.
       restriction: dispatchable?.restriction,
       deniedTools: dispatchable?.deniedTools,
+      allowedTools: options.allowedTools,
+      permissionMode: options.permissionMode,
+      realmId,
+      workspaceRoot,
     });
 
     const agentId = childContext.id;
@@ -522,6 +654,7 @@ export async function executeSubAgent(
       prompt,
       chatHistory,
       childDepth,
+      childSessionId: existingChildSessionId,
       emit,
     });
 
@@ -556,12 +689,19 @@ export async function executeSubAgent(
           model,
           llmApi,
           abortController: runAbort.controller,
+          turnBudgetLimits:
+            options.maxTurns &&
+            Number.isInteger(options.maxTurns) &&
+            options.maxTurns > 0
+              ? { maxSteps: options.maxTurns }
+              : undefined,
           callbacks: {
             onContent: (content: string) => {
               accumulatedOutput += content;
               if (onOutputUpdate) {
                 onOutputUpdate(accumulatedOutput);
               }
+              onHistoryUpdate?.(chatHistory);
             },
             onToolResult: (result: string) => {
               // todo: skip tool outputs - show tool names and params
@@ -569,6 +709,7 @@ export async function executeSubAgent(
               if (onOutputUpdate) {
                 onOutputUpdate(accumulatedOutput);
               }
+              onHistoryUpdate?.(chatHistory);
             },
           },
           runOverrides: {
@@ -592,19 +733,54 @@ export async function executeSubAgent(
         });
 
       await runInDispatchScope(
-        { context: childContext, maxDelegationDepth },
+        { context: childContext, maxDelegationDepth, runtime },
         async () => {
           if (!teamMember) {
             await runTurn();
             return;
           }
 
-          await runTurnWithTimeout(
-            runTurn,
-            runAbort.controller,
-            agentType,
-            options.memberTimeoutMs ?? teamMemberTimeoutMs(),
-          );
+          let idleBlocks = 0;
+          while (true) {
+            await runTurnWithTimeout(
+              runTurn,
+              runAbort.controller,
+              agentType,
+              options.memberTimeoutMs ?? teamMemberTimeoutMs(),
+            );
+            const lastAssistant = [...chatHistory]
+              .reverse()
+              .find((item) => item.message.role === "assistant");
+            const content = lastAssistant?.message.content;
+            const lastMessage =
+              typeof content === "string"
+                ? content
+                : content
+                    ?.filter((part) => part.type === "text")
+                    .map((part) => part.text)
+                    .join("\n");
+            const idle = await fireTeammateIdle(agentType, lastMessage).catch(
+              () => undefined,
+            );
+            if (!idle?.blocked) return;
+            idleBlocks += 1;
+            if (idleBlocks > MAX_TEAMMATE_IDLE_BLOCKS) {
+              throw new Error(t("subagent.teammateIdleBlocked"));
+            }
+            chatHistory.push({
+              message: {
+                role: "user",
+                content: [
+                  "TeammateIdle blocked completion. Resume the assigned work and address the feedback.",
+                  idle.blockReason,
+                  idle.additionalContext,
+                ]
+                  .filter(Boolean)
+                  .join("\n\n"),
+              },
+              contextItems: [],
+            });
+          }
         },
       );
 
@@ -632,8 +808,25 @@ export async function executeSubAgent(
       };
     } finally {
       escapeEvents.removeListener("user-escape", escapeHandler);
+      if (createdWorktree) {
+        await cleanupSubagentWorktree(createdWorktree).catch((error) => {
+          logger.debug("Subagent worktree cleanup failed", { error });
+        });
+      }
     }
   } catch (error: any) {
+    if (runtime?.status === "waiting_input") {
+      updateSubagentSession({
+        sessionId:
+          existingChildSessionId ?? childSessionId ?? runtime.sessionId,
+        history: chatHistory,
+      });
+      return {
+        success: false,
+        response: "",
+        error: "Subagent is waiting for parent input.",
+      };
+    }
     const cancelled =
       abortController.signal.aborted ||
       /cancelled by the user/i.test(

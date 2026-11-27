@@ -3,6 +3,7 @@ import path from "path";
 
 import type { LspDiagnostic } from "../lsp/client.js";
 import { getLspManager } from "../lsp/manager.js";
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
 
 import { Tool } from "./types.js";
 
@@ -53,13 +54,13 @@ Returns nothing useful when the project has no language server configured.`,
     if (typeof file_path !== "string" || !file_path.trim()) {
       return "Diagnostics needs a file_path argument.";
     }
-    const absolute = path.resolve(file_path);
+    const absolute = path.resolve(currentWorkspaceRoot(), file_path);
     if (!fs.existsSync(absolute)) {
       return `No such file: ${file_path}`;
     }
 
     const manager = getLspManager();
-    const running = await manager.ensureStarted(process.cwd());
+    const running = await manager.ensureStarted(currentWorkspaceRoot());
     if (running === 0) {
       return "No language server is configured. A plugin can declare one under lspServers in its manifest.";
     }

@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await getLspManager().dispose();
+  await getLspManager(workDir).dispose();
   if (previousOverride === undefined) {
     delete process.env.TNT_PLUGINS_DIR;
   } else {
@@ -58,26 +58,36 @@ afterEach(async () => {
 });
 
 describe("starting plugin language servers", () => {
+  it("keeps language server state isolated by workspace", () => {
+    const other = fs.mkdtempSync(path.join(os.tmpdir(), "tnt-lsp-other-"));
+    try {
+      expect(getLspManager(workDir)).toBe(getLspManager(workDir));
+      expect(getLspManager(workDir)).not.toBe(getLspManager(other));
+    } finally {
+      fs.rmSync(other, { recursive: true, force: true });
+    }
+  });
+
   it("starts a server a plugin declares", async () => {
     writePlugin({ fake: { command: process.execPath, args: [SERVER] } });
 
-    const count = await getLspManager().ensureStarted(workDir);
+    const count = await getLspManager(workDir).ensureStarted(workDir);
 
     expect(count).toBe(1);
-    expect(getLspManager().runningServers()).toEqual(["voice-fake"]);
+    expect(getLspManager(workDir).runningServers()).toEqual(["voice-fake"]);
   });
 
   it("starts nothing when no plugin declares a server", async () => {
-    const count = await getLspManager().ensureStarted(workDir);
+    const count = await getLspManager(workDir).ensureStarted(workDir);
 
     expect(count).toBe(0);
-    expect(getLspManager().runningServers()).toEqual([]);
+    expect(getLspManager(workDir).runningServers()).toEqual([]);
   });
 
   it("skips an entry without a usable command", async () => {
     writePlugin({ broken: { args: ["--nope"] } });
 
-    const count = await getLspManager().ensureStarted(workDir);
+    const count = await getLspManager(workDir).ensureStarted(workDir);
 
     expect(count).toBe(0);
   });
@@ -85,7 +95,7 @@ describe("starting plugin language servers", () => {
   it("skips a server that cannot start, without throwing", async () => {
     writePlugin({ dead: { command: "definitely-not-a-real-lsp-binary" } });
 
-    const count = await getLspManager().ensureStarted(workDir);
+    const count = await getLspManager(workDir).ensureStarted(workDir);
 
     expect(count).toBe(0);
   });
@@ -94,9 +104,10 @@ describe("starting plugin language servers", () => {
 describe("collecting diagnostics", () => {
   it("returns what the server publishes for the file", async () => {
     writePlugin({ fake: { command: process.execPath, args: [SERVER] } });
-    await getLspManager().ensureStarted(workDir);
+    await getLspManager(workDir).ensureStarted(workDir);
 
-    const diagnostics = await getLspManager().collectDiagnostics(fileToCheck());
+    const diagnostics =
+      await getLspManager(workDir).collectDiagnostics(fileToCheck());
 
     expect(diagnostics).toHaveLength(1);
     expect(diagnostics[0].message).toContain("fake diagnostic");
@@ -105,27 +116,30 @@ describe("collecting diagnostics", () => {
 
   it("clears the diagnostics when the new text is clean", async () => {
     writePlugin({ fake: { command: process.execPath, args: [SERVER] } });
-    await getLspManager().ensureStarted(workDir);
+    await getLspManager(workDir).ensureStarted(workDir);
     const file = fileToCheck();
-    expect(await getLspManager().collectDiagnostics(file)).toHaveLength(1);
+    expect(await getLspManager(workDir).collectDiagnostics(file)).toHaveLength(
+      1,
+    );
 
     fs.writeFileSync(file, "const fine = 1\n");
-    const after = await getLspManager().collectDiagnostics(file);
+    const after = await getLspManager(workDir).collectDiagnostics(file);
 
     expect(after).toEqual([]);
   });
 
   it("returns nothing when no server is running", async () => {
-    const diagnostics = await getLspManager().collectDiagnostics(fileToCheck());
+    const diagnostics =
+      await getLspManager(workDir).collectDiagnostics(fileToCheck());
 
     expect(diagnostics).toEqual([]);
   });
 
   it("returns nothing for a file that does not exist", async () => {
     writePlugin({ fake: { command: process.execPath, args: [SERVER] } });
-    await getLspManager().ensureStarted(workDir);
+    await getLspManager(workDir).ensureStarted(workDir);
 
-    const diagnostics = await getLspManager().collectDiagnostics(
+    const diagnostics = await getLspManager(workDir).collectDiagnostics(
       path.join(workDir, "missing.ts"),
     );
 

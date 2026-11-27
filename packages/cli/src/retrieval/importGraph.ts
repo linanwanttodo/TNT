@@ -8,6 +8,8 @@ import FileSystemIde from "core/util/filesystem.js";
 import { getIndexSqlitePath } from "core/util/paths.js";
 import { localPathToUri } from "core/util/pathToUri.js";
 
+import { workspaceRoot as currentWorkspaceRoot } from "../utils/workspaceScope.js";
+
 export type ImportKind =
   "typescript" | "python" | "go" | "java" | "rust" | "cpp";
 
@@ -480,16 +482,16 @@ export class ImportGraphService {
   }
 }
 
-let instance: ImportGraphService | undefined;
-let instanceRoot: string | undefined;
+const instances = new Map<string, ImportGraphService>();
 
 export function getImportGraphService(
-  workspaceDir: string = process.cwd(),
+  workspaceDir: string = currentWorkspaceRoot(),
 ): ImportGraphService {
   const root = path.resolve(workspaceDir);
-  if (!instance || instanceRoot !== root) {
+  let instance = instances.get(root);
+  if (!instance) {
     instance = new ImportGraphService(root);
-    instanceRoot = root;
+    instances.set(root, instance);
   }
   return instance;
 }

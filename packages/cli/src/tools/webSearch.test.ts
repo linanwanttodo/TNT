@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   matchesDomain,
   parseDuckDuckGoLite,
+  parseExaSearchText,
   queryWithDomains,
   webSearchTool,
 } from "./webSearch.js";
@@ -15,6 +16,8 @@ import {
 // urlGuard.test.ts, so here it passes the configured endpoint through.
 vi.mock("../utils/urlGuard.js", () => ({
   assertPublicHttpUrl: (raw: string) => Promise.resolve(new URL(raw)),
+  fetchPublicUrl: (raw: string | URL, init?: RequestInit) =>
+    fetch(raw, { ...init, redirect: "manual" }),
   resolveConfiguredSearchEndpoint: () =>
     Promise.resolve(new URL(process.env.TNT_WEB_SEARCH_URL ?? "")),
   hasConfiguredSearchEndpoint: () => Boolean(process.env.TNT_WEB_SEARCH_URL),
@@ -81,6 +84,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   server.closeAllConnections?.();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
@@ -136,7 +140,109 @@ describe("parseDuckDuckGoLite", () => {
   });
 });
 
+describe("parseExaSearchText", () => {
+  it("turns Exa's text blocks into citable results", () => {
+    const text = [
+      "Title: Node.js proxy support",
+      "URL: https://nodejs.org/api/http.html",
+      "Published: N/A",
+      "Author: N/A",
+      "Highlights:",
+      "Use the environment proxy settings.",
+      "",
+      "Title: Enterprise networking",
+      "URL: https://nodejs.org/learn/http/enterprise-network-configuration",
+      "Highlights: Proxy configuration.",
+    ].join("\n");
+
+    expect(parseExaSearchText(text, 2)).toEqual([
+      {
+        title: "Node.js proxy support",
+        url: "https://nodejs.org/api/http.html",
+        snippet: "Use the environment proxy settings.",
+      },
+      {
+        title: "Enterprise networking",
+        url: "https://nodejs.org/learn/http/enterprise-network-configuration",
+        snippet: "Proxy configuration.",
+      },
+    ]);
+  });
+});
+
 describe("WebSearch", () => {
+  it("uses Exa before DuckDuckGo and falls back when Exa fails", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        calls.push(url);
+        if (url.startsWith("https://mcp.exa.ai/mcp")) {
+          throw new TypeError("fetch failed");
+        }
+        return new Response(
+          [
+            '<a href="https://example.com/a" class="result-link">Fallback result</a>',
+            '<td class="result-snippet">DuckDuckGo answer</td>',
+          ].join("\n"),
+          { status: 200 },
+        );
+      }),
+    );
+
+    const text = await webSearchTool.run!({ query: "proxy" });
+
+    expect(calls[0]).toContain("https://mcp.exa.ai/mcp");
+    expect(calls[1]).toContain("https://html.duckduckgo.com/html/");
+    expect(text).toContain("Fallback result");
+    expect(text).toContain("https://example.com/a");
+  });
+
+  it("surfaces a DuckDuckGo challenge instead of reporting no results", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).startsWith("https://mcp.exa.ai/mcp")) {
+          throw new TypeError("fetch failed");
+        }
+        return new Response(
+          "<html><title>DuckDuckGo</title>anomaly challenge</html>",
+          {
+            status: 202,
+          },
+        );
+      }),
+    );
+
+    await expect(webSearchTool.run!({ query: "proxy" })).rejects.toThrow(
+      /DuckDuckGo.*challenge/i,
+    );
+  });
+
+  it("returns Exa results without requiring a configured endpoint", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            'data: {"result":{"content":[{"type":"text","text":"Title: Exa result\\nURL: https://example.com/exa\\nHighlights:\\nFound it."}]}}\n\n',
+            { status: 200 },
+          ),
+      ),
+    );
+
+    const text = await webSearchTool.run!({ query: "proxy" });
+
+    expect(text).toContain("Exa result");
+    expect(text).toContain("https://example.com/exa");
+    expect(text).toContain("Found it.");
+  });
+
+  it("is read-only", () => {
+    expect(webSearchTool.readonly).toBe(true);
+  });
+
   it("uses the configured JSON endpoint and formats its results", async () => {
     vi.stubEnv("TNT_WEB_SEARCH_URL", `${base}/search`);
     vi.stubEnv("TNT_WEB_SEARCH_KEY", "secret");
